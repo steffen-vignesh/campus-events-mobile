@@ -1,30 +1,60 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, FlatList,
-  SafeAreaView, Image,
+  SafeAreaView, Image, ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
-import { MOCK_EVENTS, isEventPast, CATEGORY_COLORS, Category } from "@/lib/mock-data";
+import { type Event, isEventPast, getCategoryColor, Category } from "@/lib/mock-data";
+import { getAdaptedEvents, getMyRegistrations, getMyBookmarks, addBookmark, removeBookmark } from "@/lib/db";
 import { useAuth } from "@/contexts/auth-context";
 
 type Tab = "registered" | "bookmarks" | "history";
 
-const registeredIds = ["e1", "e3"];
-const attendedIds = ["e7", "e9", "e10"];
-
 export default function MyEventsScreen() {
   const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("registered");
-  const [bookmarks, setBookmarks] = useState<string[]>(["e2", "e6"]);
+  const [allEvents, setAllEvents] = useState<Event[]>([]);
+  const [registeredEventIds, setRegisteredEventIds] = useState<string[]>([]);
+  const [attendedEventIds, setAttendedEventIds] = useState<string[]>([]);
+  const [bookmarks, setBookmarks] = useState<string[]>([]);
 
-  const toggleBookmark = (id: string) =>
-    setBookmarks((prev) => prev.includes(id) ? prev.filter((b) => b !== id) : [...prev, id]);
+  useEffect(() => {
+    Promise.all([getAdaptedEvents(), getMyRegistrations(), getMyBookmarks()])
+      .then(([events, regs, bms]) => {
+        setAllEvents(events);
+        const upcoming = regs.filter((r) => {
+          const evt = events.find((e) => e.id === r.event_id);
+          return evt && !isEventPast(evt);
+        }).map((r) => r.event_id);
+        const attended = regs.filter((r) => {
+          const evt = events.find((e) => e.id === r.event_id);
+          return evt && isEventPast(evt);
+        }).map((r) => r.event_id);
+        setRegisteredEventIds(upcoming);
+        setAttendedEventIds(attended);
+        setBookmarks(bms);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
 
-  const registeredEvents = MOCK_EVENTS.filter((e) => registeredIds.includes(e.id) && !isEventPast(e));
-  const bookmarkedEvents = MOCK_EVENTS.filter((e) => bookmarks.includes(e.id));
-  const attendedEvents = MOCK_EVENTS.filter((e) => attendedIds.includes(e.id))
+  const toggleBookmark = async (id: string) => {
+    const isBookmarked = bookmarks.includes(id);
+    setBookmarks((prev) => isBookmarked ? prev.filter((b) => b !== id) : [...prev, id]);
+    try {
+      if (isBookmarked) await removeBookmark(id);
+      else await addBookmark(id);
+    } catch {
+      setBookmarks((prev) => isBookmarked ? [...prev, id] : prev.filter((b) => b !== id));
+    }
+  };
+
+  const registeredEvents = allEvents.filter((e) => registeredEventIds.includes(e.id));
+  const bookmarkedEvents = allEvents.filter((e) => bookmarks.includes(e.id));
+  const attendedEvents = allEvents.filter((e) => attendedEventIds.includes(e.id))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const current = tab === "registered" ? registeredEvents : tab === "bookmarks" ? bookmarkedEvents : attendedEvents;
@@ -40,73 +70,85 @@ export default function MyEventsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>My Events</Text>
+        <TouchableOpacity style={styles.scanBtn} onPress={() => router.push("/scan")}>
+          <Ionicons name="qr-code-outline" size={18} color="#4F46E5" />
+          <Text style={styles.scanBtnTxt}>Scan to Check In</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Stats */}
-      <View style={styles.stats}>
-        {[
-          { label: "Upcoming", value: registeredEvents.length, icon: "calendar", color: "#4F46E5", bg: "#EEF2FF" },
-          { label: "Saved", value: bookmarks.length, icon: "bookmark", color: "#D97706", bg: "#FFFBEB" },
-          { label: "Attended", value: attendedEvents.length, icon: "checkmark-circle", color: "#059669", bg: "#ECFDF5" },
-        ].map((s) => (
-          <View key={s.label} style={styles.statCard}>
-            <View style={[styles.statIcon, { backgroundColor: s.bg }]}>
-              <Ionicons name={s.icon as any} size={20} color={s.color} />
-            </View>
-            <Text style={styles.statValue}>{s.value}</Text>
-            <Text style={styles.statLabel}>{s.label}</Text>
+      {loading ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color="#4F46E5" />
+        </View>
+      ) : (
+        <>
+          {/* Stats */}
+          <View style={styles.stats}>
+            {[
+              { label: "Upcoming", value: registeredEvents.length, icon: "calendar", color: "#4F46E5", bg: "#EEF2FF" },
+              { label: "Saved", value: bookmarks.length, icon: "bookmark", color: "#D97706", bg: "#FFFBEB" },
+              { label: "Attended", value: attendedEvents.length, icon: "checkmark-circle", color: "#059669", bg: "#ECFDF5" },
+            ].map((s) => (
+              <View key={s.label} style={styles.statCard}>
+                <View style={[styles.statIcon, { backgroundColor: s.bg }]}>
+                  <Ionicons name={s.icon as any} size={20} color={s.color} />
+                </View>
+                <Text style={styles.statValue}>{s.value}</Text>
+                <Text style={styles.statLabel}>{s.label}</Text>
+              </View>
+            ))}
           </View>
-        ))}
-      </View>
 
-      {/* Tabs */}
-      <View style={styles.tabBar}>
-        {([
-          { key: "registered", label: "Upcoming" },
-          { key: "bookmarks", label: "Saved" },
-          { key: "history", label: "Past" },
-        ] as { key: Tab; label: string }[]).map((t) => (
-          <TouchableOpacity
-            key={t.key}
-            style={[styles.tabBtn, tab === t.key && styles.tabBtnActive]}
-            onPress={() => setTab(t.key)}
-          >
-            <Text style={[styles.tabTxt, tab === t.key && styles.tabTxtActive]}>{t.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+          {/* Tabs */}
+          <View style={styles.tabBar}>
+            {([
+              { key: "registered", label: "Upcoming" },
+              { key: "bookmarks", label: "Saved" },
+              { key: "history", label: "Past" },
+            ] as { key: Tab; label: string }[]).map((t) => (
+              <TouchableOpacity
+                key={t.key}
+                style={[styles.tabBtn, tab === t.key && styles.tabBtnActive]}
+                onPress={() => setTab(t.key)}
+              >
+                <Text style={[styles.tabTxt, tab === t.key && styles.tabTxtActive]}>{t.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-      {/* Event list */}
-      <FlatList
-        data={current}
-        keyExtractor={(e) => e.id}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <MiniEventCard
-            event={item}
-            isBookmarked={bookmarks.includes(item.id)}
-            onBookmark={() => toggleBookmark(item.id)}
-            onPress={() => router.push(`/(tabs)/events/${item.id}`)}
+          {/* Event list */}
+          <FlatList
+            data={current}
+            keyExtractor={(e) => e.id}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => (
+              <MiniEventCard
+                event={item}
+                isBookmarked={bookmarks.includes(item.id)}
+                onBookmark={() => toggleBookmark(item.id)}
+                onPress={() => router.push(`/(tabs)/events/${item.id}`)}
+              />
+            )}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <Ionicons name={emptyMsg[tab].icon as any} size={52} color="#D1D5DB" />
+                <Text style={styles.emptyTitle}>{emptyMsg[tab].title}</Text>
+                <Text style={styles.emptySub}>{emptyMsg[tab].sub}</Text>
+                <TouchableOpacity style={styles.browseBtn} onPress={() => router.push("/(tabs)/events")}>
+                  <Text style={styles.browseBtnTxt}>Browse Events</Text>
+                </TouchableOpacity>
+              </View>
+            }
           />
-        )}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name={emptyMsg[tab].icon as any} size={52} color="#D1D5DB" />
-            <Text style={styles.emptyTitle}>{emptyMsg[tab].title}</Text>
-            <Text style={styles.emptySub}>{emptyMsg[tab].sub}</Text>
-            <TouchableOpacity style={styles.browseBtn} onPress={() => router.push("/(tabs)/events")}>
-              <Text style={styles.browseBtnTxt}>Browse Events</Text>
-            </TouchableOpacity>
-          </View>
-        }
-      />
+        </>
+      )}
     </SafeAreaView>
   );
 }
 
 function MiniEventCard({ event, isBookmarked, onBookmark, onPress }: any) {
-  const cat = CATEGORY_COLORS[event.category as Category];
+  const cat = getCategoryColor(event.category);
   const past = isEventPast(event);
   return (
     <TouchableOpacity style={[styles.miniCard, past && { opacity: 0.72 }]} onPress={onPress} activeOpacity={0.85}>
@@ -139,8 +181,11 @@ function MiniEventCard({ event, isBookmarked, onBookmark, onPress }: any) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#F8FAFF" },
-  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
   title: { fontSize: 22, fontWeight: "800", color: "#111827" },
+  scanBtn: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#EEF2FF", borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12 },
+  scanBtnTxt: { fontSize: 12, fontWeight: "700", color: "#4F46E5" },
+  loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
   stats: { flexDirection: "row", paddingHorizontal: 20, gap: 10, marginBottom: 16 },
   statCard: { flex: 1, backgroundColor: "#fff", borderRadius: 16, padding: 12, alignItems: "center", shadowColor: "#000", shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
   statIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", marginBottom: 6 },

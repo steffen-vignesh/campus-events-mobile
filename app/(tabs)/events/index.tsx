@@ -1,34 +1,55 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, SafeAreaView, Image,
+  ScrollView, SafeAreaView, Image, ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
-import { MOCK_EVENTS, CATEGORIES, Category, isEventPast, CATEGORY_COLORS } from "@/lib/mock-data";
+import { type Event, CATEGORIES, Category, isEventPast, getCategoryColor } from "@/lib/mock-data";
+import { getAdaptedEvents, getMyBookmarks, addBookmark, removeBookmark } from "@/lib/db";
 import { useAuth } from "@/contexts/auth-context";
 
 export default function EventsScreen() {
   const { user } = useAuth();
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<"all" | Category>("all");
   const [showPast, setShowPast] = useState(false);
   const [bookmarks, setBookmarks] = useState<string[]>([]);
 
-  const toggleBookmark = (id: string) =>
-    setBookmarks((prev) => prev.includes(id) ? prev.filter((b) => b !== id) : [...prev, id]);
+  useEffect(() => {
+    Promise.all([getAdaptedEvents(), getMyBookmarks()])
+      .then(([evts, bms]) => {
+        setEvents(evts);
+        setBookmarks(bms);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
 
-  const match = (e: typeof MOCK_EVENTS[0]) => {
+  const toggleBookmark = async (id: string) => {
+    const isBookmarked = bookmarks.includes(id);
+    setBookmarks((prev) => isBookmarked ? prev.filter((b) => b !== id) : [...prev, id]);
+    try {
+      if (isBookmarked) await removeBookmark(id);
+      else await addBookmark(id);
+    } catch {
+      setBookmarks((prev) => isBookmarked ? [...prev, id] : prev.filter((b) => b !== id));
+    }
+  };
+
+  const match = (e: Event) => {
     const s = search.toLowerCase();
     const matchSearch = e.title.toLowerCase().includes(s) || e.venue.toLowerCase().includes(s) || e.tags.some((t) => t.includes(s));
     const matchCat = category === "all" || e.category === category;
     return matchSearch && matchCat;
   };
 
-  const upcoming = MOCK_EVENTS.filter((e) => !isEventPast(e) && match(e))
+  const upcoming = events.filter((e) => !isEventPast(e) && match(e))
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  const past = MOCK_EVENTS.filter((e) => isEventPast(e) && match(e))
+  const past = events.filter((e) => isEventPast(e) && match(e))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
@@ -69,51 +90,57 @@ export default function EventsScreen() {
         ))}
       </ScrollView>
 
-      <FlatList
-        data={[...upcoming, ...(showPast ? past : [])]}
-        keyExtractor={(e) => e.id}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        ListHeaderComponent={
-          upcoming.length > 0 ? (
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Upcoming Events</Text>
-              <View style={styles.badge}><Text style={styles.badgeTxt}>{upcoming.length}</Text></View>
+      {loading ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color="#4F46E5" />
+        </View>
+      ) : (
+        <FlatList
+          data={[...upcoming, ...(showPast ? past : [])]}
+          keyExtractor={(e) => e.id}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            upcoming.length > 0 ? (
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Upcoming Events</Text>
+                <View style={styles.badge}><Text style={styles.badgeTxt}>{upcoming.length}</Text></View>
+              </View>
+            ) : null
+          }
+          ListFooterComponent={
+            past.length > 0 ? (
+              <TouchableOpacity style={styles.pastBtn} onPress={() => setShowPast(!showPast)}>
+                <Ionicons name={showPast ? "chevron-up" : "chevron-down"} size={16} color="#6B7280" />
+                <Text style={styles.pastBtnTxt}>
+                  {showPast ? "Hide past events" : `Show ${past.length} past events`}
+                </Text>
+              </TouchableOpacity>
+            ) : null
+          }
+          renderItem={({ item }) => (
+            <EventCard
+              event={item}
+              isPast={isEventPast(item)}
+              isBookmarked={bookmarks.includes(item.id)}
+              onBookmark={() => toggleBookmark(item.id)}
+              onPress={() => router.push(`/(tabs)/events/${item.id}`)}
+            />
+          )}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name="calendar-outline" size={48} color="#D1D5DB" />
+              <Text style={styles.emptyTxt}>No events found</Text>
             </View>
-          ) : null
-        }
-        ListFooterComponent={
-          past.length > 0 ? (
-            <TouchableOpacity style={styles.pastBtn} onPress={() => setShowPast(!showPast)}>
-              <Ionicons name={showPast ? "chevron-up" : "chevron-down"} size={16} color="#6B7280" />
-              <Text style={styles.pastBtnTxt}>
-                {showPast ? "Hide past events" : `Show ${past.length} past events`}
-              </Text>
-            </TouchableOpacity>
-          ) : null
-        }
-        renderItem={({ item }) => (
-          <EventCard
-            event={item}
-            isPast={isEventPast(item)}
-            isBookmarked={bookmarks.includes(item.id)}
-            onBookmark={() => toggleBookmark(item.id)}
-            onPress={() => router.push(`/(tabs)/events/${item.id}`)}
-          />
-        )}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="calendar-outline" size={48} color="#D1D5DB" />
-            <Text style={styles.emptyTxt}>No events found</Text>
-          </View>
-        }
-      />
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
 
 function EventCard({ event, isPast, isBookmarked, onBookmark, onPress }: any) {
-  const cat = CATEGORY_COLORS[event.category as Category];
+  const cat = getCategoryColor(event.category);
   const fillPct = Math.round((event.registrations / event.capacity) * 100);
 
   return (
@@ -181,6 +208,7 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: "#4F46E5", borderColor: "#4F46E5" },
   chipTxt: { fontSize: 12, fontWeight: "600", color: "#6B7280" },
   chipTxtActive: { color: "#fff" },
+  loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
   list: { paddingHorizontal: 20, paddingBottom: 20 },
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
   sectionTitle: { fontSize: 16, fontWeight: "700", color: "#111827" },

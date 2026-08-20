@@ -24,7 +24,25 @@ export default function LoginScreen() {
     setLoading(false);
     if (!result.success) {
       Alert.alert("Login failed", result.error);
+      return;
     }
+    router.replace("/");
+  };
+
+  const quickLogin = async (role: "admin" | "student") => {
+    const creds: Record<string, [string, string]> = {
+      admin: ["admin@college.edu", "admin123"],
+      student: ["student@college.edu", "student123"],
+    };
+    const [quickEmail, quickPassword] = creds[role];
+    setLoading(true);
+    const result = await login(quickEmail, quickPassword);
+    setLoading(false);
+    if (!result.success) {
+      Alert.alert("Login failed", result.error);
+      return;
+    }
+    router.replace("/");
   };
 
   return (
@@ -43,11 +61,22 @@ export default function LoginScreen() {
         <View style={styles.card}>
           <Text style={styles.heading}>Sign in</Text>
 
-          {/* Demo credentials */}
-          <View style={styles.demoBox}>
-            <Text style={styles.demoTitle}>Demo accounts</Text>
-            <Text style={styles.demoText}>Admin: admin@college.edu / admin123</Text>
-            <Text style={styles.demoText}>Student: student@college.edu / student123</Text>
+          {/* Quick role login */}
+          <View style={styles.roleRow}>
+            <TouchableOpacity style={styles.roleBtn} onPress={() => quickLogin("admin")} disabled={loading}>
+              <Ionicons name="shield-checkmark" size={20} color="#4F46E5" />
+              <Text style={styles.roleBtnText}>Organiser</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.roleBtn} onPress={() => quickLogin("student")} disabled={loading}>
+              <Ionicons name="person" size={20} color="#4F46E5" />
+              <Text style={styles.roleBtnText}>Student</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or sign in with email</Text>
+            <View style={styles.dividerLine} />
           </View>
 
           <View style={styles.field}>
@@ -129,9 +158,12 @@ const styles = StyleSheet.create({
   tagline: { fontSize: 14, color: "#6B7280", marginTop: 4 },
   card: { backgroundColor: "#fff", borderRadius: 24, padding: 24, shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
   heading: { fontSize: 22, fontWeight: "700", color: "#111827", marginBottom: 16 },
-  demoBox: { backgroundColor: "#EEF2FF", borderRadius: 12, padding: 12, marginBottom: 20 },
-  demoTitle: { fontSize: 12, fontWeight: "600", color: "#4338CA", marginBottom: 4 },
-  demoText: { fontSize: 11, color: "#6366F1", lineHeight: 18 },
+  roleRow: { flexDirection: "row", gap: 12, marginBottom: 20 },
+  roleBtn: { flex: 1, alignItems: "center", gap: 6, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: "#E5E7EB", backgroundColor: "#F9FAFB" },
+  roleBtnText: { fontSize: 13, fontWeight: "600", color: "#111827" },
+  dividerRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 20 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: "#E5E7EB" },
+  dividerText: { fontSize: 11, color: "#9CA3AF" },
   field: { marginBottom: 16 },
   label: { fontSize: 13, fontWeight: "600", color: "#374151", marginBottom: 6 },
   labelRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },

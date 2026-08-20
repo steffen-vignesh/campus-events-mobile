@@ -1,19 +1,59 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Image,
-  SafeAreaView, Alert, Share, Linking,
+  SafeAreaView, Alert, Share, Linking, ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
-import { MOCK_EVENTS, CATEGORY_COLORS, isEventPast } from "@/lib/mock-data";
+import { type Event, getCategoryColor, isEventPast } from "@/lib/mock-data";
+import { getAdaptedEvent, registerForEvent, isRegisteredForEvent, getMyBookmarks, addBookmark, removeBookmark, getMyEventSurvey } from "@/lib/db";
+import { useAuth } from "@/contexts/auth-context";
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const event = MOCK_EVENTS.find((e) => e.id === id);
+  const { user } = useAuth();
+  const [event, setEvent] = useState<Event | null | undefined>(undefined);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
   const [registering, setRegistering] = useState(false);
+  const [surveySubmitted, setSurveySubmitted] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    Promise.all([
+      getAdaptedEvent(id),
+      isRegisteredForEvent(id),
+      getMyBookmarks(),
+      getMyEventSurvey(id),
+    ]).then(([evt, registered, bms, survey]) => {
+      setEvent(evt);
+      setIsRegistered(registered);
+      setIsBookmarked(bms.includes(id));
+      setSurveySubmitted(!!survey);
+    }).catch(() => setEvent(null));
+  }, [id]);
+
+  const handleBookmark = async () => {
+    const next = !isBookmarked;
+    setIsBookmarked(next);
+    try {
+      if (next) await addBookmark(id!);
+      else await removeBookmark(id!);
+    } catch {
+      setIsBookmarked(!next);
+    }
+  };
+
+  if (event === undefined) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color="#4F46E5" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!event) {
     return (
@@ -28,19 +68,31 @@ export default function EventDetailScreen() {
     );
   }
 
-  const cat = CATEGORY_COLORS[event.category];
+  const cat = getCategoryColor(event.category);
   const fillPct = Math.round((event.registrations / event.capacity) * 100);
   const isFull = event.registrations >= event.capacity;
   const isPast = isEventPast(event);
   const isPastDeadline = new Date(event.registrationDeadline) < new Date();
+  const hasTicketUrl = event.registrationFee > 0 && event.ticketUrl;
 
   const handleRegister = async () => {
-    if (isRegistered) return;
+    if (isRegistered || !user) return;
     setRegistering(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setRegistering(false);
-    setIsRegistered(true);
-    Alert.alert("Registered!", "You're registered for this event. Check your email for confirmation.");
+    try {
+      await registerForEvent(id!, {
+        name: user.name,
+        email: user.email,
+        department: user.department,
+        year: user.year,
+        fee: event.registrationFee,
+      });
+      setIsRegistered(true);
+      Alert.alert("Registered!", "You're registered for this event. Check your email for confirmation.");
+    } catch (err: any) {
+      Alert.alert("Registration failed", err.message ?? "Please try again.");
+    } finally {
+      setRegistering(false);
+    }
   };
 
   const handleShare = () => {
@@ -52,11 +104,20 @@ export default function EventDetailScreen() {
     if (isPast) return "Event Ended";
     if (isFull) return "Event Full";
     if (isPastDeadline) return "Registration Closed";
+    if (hasTicketUrl) return `Buy Ticket — ₹${event.registrationFee}`;
     return event.registrationFee === 0 ? "Register for Free" : `Register — ₹${event.registrationFee}`;
   };
 
   const registerDisabled = isRegistered || isPast || isFull || isPastDeadline;
   const registerBg = isRegistered ? "#10B981" : registerDisabled ? "#9CA3AF" : "#4F46E5";
+
+  const handleRegisterPress = () => {
+    if (hasTicketUrl && !isRegistered && !registerDisabled) {
+      Linking.openURL(event.ticketUrl!);
+    } else {
+      handleRegister();
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -78,10 +139,7 @@ export default function EventDetailScreen() {
             </View>
           </View>
           <View style={styles.bannerActions}>
-            <TouchableOpacity
-              style={styles.actionBtn}
-              onPress={() => setIsBookmarked(!isBookmarked)}
-            >
+            <TouchableOpacity style={styles.actionBtn} onPress={handleBookmark}>
               <Ionicons
                 name={isBookmarked ? "bookmark" : "bookmark-outline"}
                 size={22}
@@ -184,6 +242,21 @@ export default function EventDetailScreen() {
             </Text>
           </View>
 
+          {/* Feedback survey — past events the student registered for */}
+          {isPast && isRegistered && (
+            surveySubmitted ? (
+              <View style={styles.surveyDoneCard}>
+                <Ionicons name="checkmark-circle" size={18} color="#16A34A" />
+                <Text style={styles.surveyDoneTxt}>Feedback submitted — thank you!</Text>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.surveyBtn} onPress={() => router.push(`/survey/${id}`)}>
+                <Ionicons name="clipboard-outline" size={18} color="#fff" />
+                <Text style={styles.surveyBtnTxt}>Fill Feedback Survey</Text>
+              </TouchableOpacity>
+            )
+          )}
+
           <View style={styles.spacer} />
         </View>
       </ScrollView>
@@ -192,7 +265,7 @@ export default function EventDetailScreen() {
       <View style={styles.stickyBar}>
         <TouchableOpacity
           style={[styles.regBtn, { backgroundColor: registerBg }]}
-          onPress={handleRegister}
+          onPress={handleRegisterPress}
           disabled={registerDisabled || registering}
         >
           <Text style={styles.regBtnTxt}>
@@ -220,6 +293,7 @@ function InfoCard({ icon, label, value }: { icon: string; label: string; value: 
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
+  loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
   notFound: { flex: 1, justifyContent: "center", alignItems: "center" },
   notFoundTxt: { fontSize: 16, color: "#6B7280" },
   backLink: { marginTop: 12 },
@@ -267,6 +341,10 @@ const styles = StyleSheet.create({
   eligTxt: { fontSize: 13, color: "#92400E", lineHeight: 20 },
   deadlineCard: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#EEF2FF", borderRadius: 14, padding: 14, marginBottom: 12 },
   deadlineTxt: { fontSize: 13, color: "#6B7280" },
+  surveyDoneCard: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#ECFDF5", borderRadius: 14, padding: 14, marginBottom: 12 },
+  surveyDoneTxt: { fontSize: 13, fontWeight: "600", color: "#166534" },
+  surveyBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#4F46E5", borderRadius: 14, paddingVertical: 13, marginBottom: 12 },
+  surveyBtnTxt: { color: "#fff", fontWeight: "700", fontSize: 14 },
   spacer: { height: 16 },
   stickyBar: { padding: 16, paddingBottom: 24, backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: "#E5E7EB" },
   regBtn: { borderRadius: 16, paddingVertical: 16, alignItems: "center" },

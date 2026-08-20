@@ -1,25 +1,50 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet,
-  SafeAreaView, Alert, Switch,
+  SafeAreaView, Alert, ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { MOCK_EVENTS, CATEGORIES } from "@/lib/mock-data";
+import { type Event } from "@/lib/mock-data";
+import { getAdaptedEvent, updateEvent } from "@/lib/db";
 
 export default function AdminEditEventScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const event = MOCK_EVENTS.find((e) => e.id === id);
+  const [event, setEvent] = useState<Event | null | undefined>(undefined);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [venue, setVenue] = useState("");
+  const [organizer, setOrganizer] = useState("");
+  const [email, setEmail] = useState("");
+  const [fee, setFee] = useState("0");
+  const [capacity, setCapacity] = useState("100");
+  const [eligibility, setEligibility] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const [title, setTitle] = useState(event?.title ?? "");
-  const [description, setDescription] = useState(event?.description ?? "");
-  const [venue, setVenue] = useState(event?.venue ?? "");
-  const [organizer, setOrganizer] = useState(event?.organizer ?? "");
-  const [email, setEmail] = useState(event?.contactEmail ?? "");
-  const [fee, setFee] = useState(String(event?.registrationFee ?? 0));
-  const [capacity, setCapacity] = useState(String(event?.capacity ?? 100));
-  const [eligibility, setEligibility] = useState(event?.eligibility ?? "");
-  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    if (!id) return;
+    getAdaptedEvent(id).then((evt) => {
+      setEvent(evt);
+      if (evt) {
+        setTitle(evt.title);
+        setDescription(evt.description);
+        setVenue(evt.venue);
+        setOrganizer(evt.organizer);
+        setEmail(evt.contactEmail);
+        setFee(String(evt.registrationFee));
+        setCapacity(String(evt.capacity));
+        setEligibility(evt.eligibility);
+      }
+    }).catch(() => setEvent(null));
+  }, [id]);
+
+  if (event === undefined) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.center}><ActivityIndicator size="large" color="#4F46E5" /></View>
+      </SafeAreaView>
+    );
+  }
 
   if (!event) {
     return (
@@ -34,11 +59,32 @@ export default function AdminEditEventScreen() {
     );
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title) { Alert.alert("Title required"); return; }
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
-    Alert.alert("Saved!", "Event details have been updated.");
+    setSaving(true);
+    try {
+      const base = {
+        title,
+        description,
+        venue,
+        organizer_name: organizer,
+        organizer_email: email,
+        registration_fee: Number(fee) || 0,
+        capacity: Number(capacity) || 100,
+      };
+      try {
+        await updateEvent(id!, { ...base, banner_link: null, ticket_url: null });
+      } catch {
+        await updateEvent(id!, base);
+      }
+      Alert.alert("Saved!", "Event details have been updated.", [
+        { text: "OK", onPress: () => router.back() },
+      ]);
+    } catch (err: any) {
+      Alert.alert("Error", err.message ?? "Failed to save event.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -94,8 +140,8 @@ export default function AdminEditEventScreen() {
             <Text style={styles.infoTxt}>Category: <Text style={{ fontWeight: "700" }}>{event.category}</Text> · Status: <Text style={{ fontWeight: "700" }}>{event.status}</Text></Text>
           </View>
 
-          <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-            <Text style={styles.saveBtnTxt}>{saved ? "✓ Saved!" : "Save Changes"}</Text>
+          <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
+            <Text style={styles.saveBtnTxt}>{saving ? "Saving..." : "Save Changes"}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -124,6 +170,7 @@ function Field({ label, value, onChangeText, placeholder, multiline, keyboardTyp
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#F8FAFF" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
   notFound: { flex: 1, justifyContent: "center", alignItems: "center" },
   notFoundTxt: { fontSize: 16, color: "#6B7280" },
   backLink: { marginTop: 12 },

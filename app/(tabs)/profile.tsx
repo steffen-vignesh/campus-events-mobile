@@ -5,13 +5,33 @@ import {
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/auth-context";
-import { MOCK_EVENTS, isEventPast } from "@/lib/mock-data";
-
-const registeredIds = ["e1", "e3"];
-const attendedIds = ["e7", "e9", "e10"];
+import { useState, useEffect } from "react";
+import { getMyRegistrations, getAdaptedEvents, getMyBookmarks } from "@/lib/db";
+import { isEventPast } from "@/lib/mock-data";
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
+  const [upcomingCount, setUpcomingCount] = useState(0);
+  const [attendedCount, setAttendedCount] = useState(0);
+  const [savedCount, setSavedCount] = useState(0);
+
+  useEffect(() => {
+    Promise.all([getAdaptedEvents(), getMyRegistrations(), getMyBookmarks()])
+      .then(([events, regs, bms]) => {
+        const upcoming = regs.filter((r) => {
+          const evt = events.find((e) => e.id === r.event_id);
+          return evt && !isEventPast(evt);
+        }).length;
+        const attended = regs.filter((r) => {
+          const evt = events.find((e) => e.id === r.event_id);
+          return evt && isEventPast(evt);
+        }).length;
+        setUpcomingCount(upcoming);
+        setAttendedCount(attended);
+        setSavedCount(bms.length);
+      })
+      .catch(console.error);
+  }, []);
 
   const handleLogout = () => {
     Alert.alert("Sign out", "Are you sure you want to sign out?", [
@@ -19,9 +39,6 @@ export default function ProfileScreen() {
       { text: "Sign Out", style: "destructive", onPress: () => { logout(); router.replace("/login"); } },
     ]);
   };
-
-  const upcomingCount = MOCK_EVENTS.filter((e) => registeredIds.includes(e.id) && !isEventPast(e)).length;
-  const attendedCount = attendedIds.length;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -55,7 +72,7 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.divider} />
           <View style={styles.statBox}>
-            <Text style={styles.statNum}>2</Text>
+            <Text style={styles.statNum}>{savedCount}</Text>
             <Text style={styles.statLbl}>Saved</Text>
           </View>
         </View>

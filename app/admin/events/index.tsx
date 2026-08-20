@@ -1,18 +1,46 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet,
-  SafeAreaView, Image, Alert,
+  SafeAreaView, Image, Alert, ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
-import { MOCK_EVENTS, CATEGORIES, Category, isEventPast, CATEGORY_COLORS } from "@/lib/mock-data";
+import { type Event, CATEGORIES, Category, isEventPast, getCategoryColor } from "@/lib/mock-data";
+import { getAdaptedEvents, deleteEvent } from "@/lib/db";
 
 export default function AdminEventsScreen() {
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<"all" | Category>("all");
 
-  const sorted = [...MOCK_EVENTS].sort((a, b) => {
+  useEffect(() => {
+    getAdaptedEvents()
+      .then(setEvents)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleDelete = (event: Event) => {
+    Alert.alert("Delete", `Delete "${event.title}"?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteEvent(event.id);
+            setEvents((prev) => prev.filter((e) => e.id !== event.id));
+          } catch (err: any) {
+            Alert.alert("Error", err.message ?? "Failed to delete event.");
+          }
+        },
+      },
+    ]);
+  };
+
+  const sorted = [...events].sort((a, b) => {
     const aPast = isEventPast(a);
     const bPast = isEventPast(b);
     if (aPast !== bPast) return aPast ? 1 : -1;
@@ -28,8 +56,8 @@ export default function AdminEventsScreen() {
     return matchSearch && matchCat;
   });
 
-  const upcomingCnt = MOCK_EVENTS.filter((e) => !isEventPast(e)).length;
-  const pastCnt = MOCK_EVENTS.filter((e) => isEventPast(e)).length;
+  const upcomingCnt = events.filter((e) => !isEventPast(e)).length;
+  const pastCnt = events.filter((e) => isEventPast(e)).length;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -76,83 +104,85 @@ export default function AdminEventsScreen() {
         )}
       />
 
-      {/* Event list */}
-      <FlatList
-        data={filtered}
-        keyExtractor={(e) => e.id}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item: event }) => {
-          const past = isEventPast(event);
-          const fillPct = Math.round((event.registrations / event.capacity) * 100);
-          const cat = CATEGORY_COLORS[event.category];
-          return (
-            <View style={[styles.card, past && styles.cardPast]}>
-              <Image source={{ uri: event.bannerImage }} style={styles.cardImg} />
-              <View style={styles.cardBody}>
-                <View style={styles.cardTop}>
-                  <View style={[styles.catBadge, { backgroundColor: cat.bg }]}>
-                    <Text style={[styles.catTxt, { color: cat.text }]}>{event.category}</Text>
+      {loading ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color="#4F46E5" />
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={(e) => e.id}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item: event }) => {
+            const past = isEventPast(event);
+            const fillPct = Math.round((event.registrations / event.capacity) * 100);
+            const cat = getCategoryColor(event.category);
+            return (
+              <View style={[styles.card, past && styles.cardPast]}>
+                <Image source={{ uri: event.bannerImage }} style={styles.cardImg} />
+                <View style={styles.cardBody}>
+                  <View style={styles.cardTop}>
+                    <View style={[styles.catBadge, { backgroundColor: cat.bg }]}>
+                      <Text style={[styles.catTxt, { color: cat.text }]}>{event.category}</Text>
+                    </View>
+                    {past ? (
+                      <View style={styles.completedBadge}><Text style={styles.completedTxt}>Completed</Text></View>
+                    ) : (
+                      <View style={styles.upcomingBadge}><Text style={styles.upcomingTxt}>Upcoming</Text></View>
+                    )}
                   </View>
-                  {past ? (
-                    <View style={styles.completedBadge}><Text style={styles.completedTxt}>Completed</Text></View>
-                  ) : (
-                    <View style={styles.upcomingBadge}><Text style={styles.upcomingTxt}>Upcoming</Text></View>
-                  )}
-                </View>
-                <Text style={styles.cardTitle} numberOfLines={2}>{event.title}</Text>
-                <View style={styles.metaRow}>
-                  <Ionicons name="calendar-outline" size={13} color="#9CA3AF" />
-                  <Text style={styles.metaTxt}>{format(new Date(event.date), "MMM d, yyyy")}</Text>
-                  <Ionicons name="location-outline" size={13} color="#9CA3AF" style={{ marginLeft: 8 }} />
-                  <Text style={styles.metaTxt} numberOfLines={1}>{event.venue}</Text>
-                </View>
-                <View style={styles.fillRow}>
-                  <View style={styles.fillBg}>
-                    <View style={[styles.fillBar, {
-                      width: `${Math.min(fillPct, 100)}%` as any,
-                      backgroundColor: fillPct >= 90 ? "#EF4444" : fillPct >= 70 ? "#F59E0B" : "#4F46E5",
-                    }]} />
+                  <Text style={styles.cardTitle} numberOfLines={2}>{event.title}</Text>
+                  <View style={styles.metaRow}>
+                    <Ionicons name="calendar-outline" size={13} color="#9CA3AF" />
+                    <Text style={styles.metaTxt}>{format(new Date(event.date), "MMM d, yyyy")}</Text>
+                    <Ionicons name="location-outline" size={13} color="#9CA3AF" style={{ marginLeft: 8 }} />
+                    <Text style={styles.metaTxt} numberOfLines={1}>{event.venue}</Text>
                   </View>
-                  <Text style={styles.fillTxt}>{event.registrations}/{event.capacity}</Text>
-                </View>
-                <View style={styles.actions}>
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => router.push(`/admin/events/${event.id}`)}
-                  >
-                    <Ionicons name="create-outline" size={18} color="#4F46E5" />
-                    <Text style={styles.actionTxt}>Edit</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => router.push(`/admin/events/${event.id}/registrants`)}
-                  >
-                    <Ionicons name="people-outline" size={18} color="#059669" />
-                    <Text style={[styles.actionTxt, { color: "#059669" }]}>Registrants</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => Alert.alert("Delete", `Delete "${event.title}"?`, [
-                      { text: "Cancel", style: "cancel" },
-                      { text: "Delete", style: "destructive", onPress: () => {} },
-                    ])}
-                  >
-                    <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                    <Text style={[styles.actionTxt, { color: "#EF4444" }]}>Delete</Text>
-                  </TouchableOpacity>
+                  <View style={styles.fillRow}>
+                    <View style={styles.fillBg}>
+                      <View style={[styles.fillBar, {
+                        width: `${Math.min(fillPct, 100)}%` as any,
+                        backgroundColor: fillPct >= 90 ? "#EF4444" : fillPct >= 70 ? "#F59E0B" : "#4F46E5",
+                      }]} />
+                    </View>
+                    <Text style={styles.fillTxt}>{event.registrations}/{event.capacity}</Text>
+                  </View>
+                  <View style={styles.actions}>
+                    <TouchableOpacity
+                      style={styles.actionBtn}
+                      onPress={() => router.push(`/admin/events/${event.id}`)}
+                    >
+                      <Ionicons name="create-outline" size={18} color="#4F46E5" />
+                      <Text style={styles.actionTxt}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.actionBtn}
+                      onPress={() => router.push(`/admin/events/${event.id}/registrants`)}
+                    >
+                      <Ionicons name="people-outline" size={18} color="#059669" />
+                      <Text style={[styles.actionTxt, { color: "#059669" }]}>Registrants</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.actionBtn}
+                      onPress={() => handleDelete(event)}
+                    >
+                      <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                      <Text style={[styles.actionTxt, { color: "#EF4444" }]}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
+            );
+          }}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name="calendar-outline" size={48} color="#D1D5DB" />
+              <Text style={styles.emptyTxt}>No events found</Text>
             </View>
-          );
-        }}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="calendar-outline" size={48} color="#D1D5DB" />
-            <Text style={styles.emptyTxt}>No events found</Text>
-          </View>
-        }
-      />
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -172,6 +202,7 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: "#4F46E5", borderColor: "#4F46E5" },
   chipTxt: { fontSize: 12, fontWeight: "600", color: "#6B7280" },
   chipTxtActive: { color: "#fff" },
+  loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
   list: { paddingHorizontal: 20, paddingBottom: 24 },
   card: { backgroundColor: "#fff", borderRadius: 20, overflow: "hidden", marginBottom: 14, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   cardPast: { opacity: 0.7 },

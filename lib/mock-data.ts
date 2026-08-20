@@ -31,6 +31,8 @@ export interface Event {
   tags: string[];
   status: EventStatus;
   bannerImage: string;
+  bannerLink?: string;
+  ticketUrl?: string;
   attachments: { name: string; url: string }[];
 }
 
@@ -68,9 +70,19 @@ export const CATEGORY_COLORS: Record<Category, { bg: string; text: string }> = {
   social: { bg: "#F0FDF4", text: "#16A34A" },
 };
 
+const DEFAULT_CATEGORY_COLOR = { bg: "#F3F4F6", text: "#374151" };
+
+// Server data can carry category values outside this app's Category enum
+// (e.g. "competition", "guest-lecture", "other" from the web app) — always
+// fall back instead of crashing on an unrecognized value.
+export function getCategoryColor(category: string): { bg: string; text: string } {
+  return CATEGORY_COLORS[category as Category] ?? DEFAULT_CATEGORY_COLOR;
+}
+
 export function isEventPast(event: Event): boolean {
-  const endDate = event.endDate ?? event.date;
-  return new Date(endDate) < new Date(new Date().toDateString());
+  const dateStr = event.endDate ?? event.date;
+  const timeStr = event.endDate ? "23:59" : (event.time ?? "23:59");
+  return new Date(`${dateStr}T${timeStr}:00`) < new Date();
 }
 
 export const MOCK_EVENTS: Event[] = [

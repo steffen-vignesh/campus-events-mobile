@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import * as SecureStore from "expo-secure-store";
+import { supabase } from "@/lib/supabase";
 
 export type UserRole = "admin" | "student";
 
@@ -29,55 +29,72 @@ interface RegisterData {
   year?: string;
 }
 
-const DEMO_USERS: (User & { password: string })[] = [
-  { id: "admin1", name: "Dr. Ramesh Kumar", email: "admin@college.edu", password: "admin123", role: "admin", department: "Computer Science" },
-  { id: "student1", name: "Arjun Mehta", email: "student@college.edu", password: "student123", role: "student", department: "Computer Science", year: "3rd Year" },
-];
-
 const AuthContext = createContext<AuthContextType | null>(null);
+
+// Role and profile fields are authoritative in the `profiles` table (matches
+// the web app) — auth user_metadata is only used at signup time and can go
+// stale (e.g. an account promoted to admin directly in `profiles`).
+async function loadProfile(userId: string, fallbackEmail: string): Promise<User | null> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .single();
+  if (!data) return null;
+  return {
+    id: data.id,
+    name: data.name ?? fallbackEmail,
+    email: data.email ?? fallbackEmail,
+    role: (data.role as UserRole) ?? "student",
+    department: data.department ?? undefined,
+    year: data.year ?? undefined,
+  };
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    SecureStore.getItemAsync("campus_user").then((stored) => {
-      if (stored) {
-        try { setUser(JSON.parse(stored)); } catch {}
-      }
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      setUser(session?.user ? await loadProfile(session.user.id, session.user.email!) : null);
       setLoading(false);
-    }).catch(() => setLoading(false));
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setUser(session?.user ? await loadProfile(session.user.id, session.user.email!) : null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
-    const found = DEMO_USERS.find(
-      (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-    );
-    if (!found) return { success: false, error: "Invalid email or password." };
-    const { password: _, ...userData } = found;
-    setUser(userData);
-    await SecureStore.setItemAsync("campus_user", JSON.stringify(userData));
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { success: false, error: error.message };
+    if (data.user) setUser(await loadProfile(data.user.id, data.user.email!));
     return { success: true };
   };
 
   const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
-    await SecureStore.deleteItemAsync("campus_user");
   };
 
   const register = async (data: RegisterData) => {
-    const exists = DEMO_USERS.find((u) => u.email.toLowerCase() === data.email.toLowerCase());
-    if (exists) return { success: false, error: "An account with this email already exists." };
-    const newUser: User = {
-      id: `user_${Date.now()}`,
-      name: data.name,
+    const { data: authData, error } = await supabase.auth.signUp({
       email: data.email,
-      role: data.role,
-      department: data.department,
-      year: data.year,
-    };
-    setUser(newUser);
-    await SecureStore.setItemAsync("campus_user", JSON.stringify(newUser));
+      password: data.password,
+      options: {
+        data: {
+          name: data.name,
+          role: "student",
+          department: data.department,
+          year: data.year,
+        },
+      },
+    });
+    if (error) return { success: false, error: error.message };
+    if (authData.user) setUser(await loadProfile(authData.user.id, authData.user.email!));
     return { success: true };
   };
 

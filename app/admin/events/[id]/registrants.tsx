@@ -1,21 +1,51 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet,
-  SafeAreaView, Share,
+  SafeAreaView, Share, ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
-import { MOCK_EVENTS, MOCK_REGISTRANTS } from "@/lib/mock-data";
+import { type Event } from "@/lib/mock-data";
+import { type DbRegistration, getAdaptedEvent, getEventRegistrations, toggleAttendance } from "@/lib/db";
 
 export default function RegistrantsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const event = MOCK_EVENTS.find((e) => e.id === id);
-  const registrants = MOCK_REGISTRANTS.filter((r) => r.eventId === id);
+  const [event, setEvent] = useState<Event | null>(null);
+  const [registrants, setRegistrants] = useState<DbRegistration[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [attendance, setAttendance] = useState<Record<string, boolean>>(
-    Object.fromEntries(registrants.map((r) => [r.id, r.attended]))
-  );
+  const [attendance, setAttendance] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!id) return;
+    Promise.all([getAdaptedEvent(id), getEventRegistrations(id)])
+      .then(([evt, regs]) => {
+        setEvent(evt);
+        setRegistrants(regs);
+        setAttendance(Object.fromEntries(regs.map((r) => [r.id, r.attended])));
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  const handleToggleAttendance = async (regId: string) => {
+    const next = !attendance[regId];
+    setAttendance((prev) => ({ ...prev, [regId]: next }));
+    try {
+      await toggleAttendance(regId, next);
+    } catch {
+      setAttendance((prev) => ({ ...prev, [regId]: !next }));
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.center}><ActivityIndicator size="large" color="#4F46E5" /></View>
+      </SafeAreaView>
+    );
+  }
 
   if (!event) {
     return (
@@ -27,21 +57,17 @@ export default function RegistrantsScreen() {
 
   const filtered = registrants.filter(
     (r) =>
-      r.name.toLowerCase().includes(search.toLowerCase()) ||
-      r.email.toLowerCase().includes(search.toLowerCase()) ||
-      r.department.toLowerCase().includes(search.toLowerCase())
+      r.student_name.toLowerCase().includes(search.toLowerCase()) ||
+      r.student_email.toLowerCase().includes(search.toLowerCase()) ||
+      (r.student_department ?? "").toLowerCase().includes(search.toLowerCase())
   );
 
   const attendedCount = Object.values(attendance).filter(Boolean).length;
 
-  const toggleAttendance = (regId: string) => {
-    setAttendance((prev) => ({ ...prev, [regId]: !prev[regId] }));
-  };
-
   const handleExport = () => {
-    const lines = ["Name,Email,Phone,Year,Department,Attended"];
+    const lines = ["Name,Email,Year,Department,Attended"];
     registrants.forEach((r) => {
-      lines.push(`${r.name},${r.email},${r.phone},${r.year},${r.department},${attendance[r.id] ? "Yes" : "No"}`);
+      lines.push(`${r.student_name},${r.student_email},${r.student_year ?? ""},${r.student_department ?? ""},${attendance[r.id] ? "Yes" : "No"}`);
     });
     Share.share({ message: lines.join("\n"), title: `${event.title} Registrants` });
   };
@@ -94,22 +120,22 @@ export default function RegistrantsScreen() {
         keyExtractor={(r) => r.id}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item: r, index }) => (
+        renderItem={({ item: r }) => (
           <View style={styles.row}>
             <View style={styles.rowLeft}>
               <View style={styles.avatar}>
-                <Text style={styles.avatarTxt}>{r.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}</Text>
+                <Text style={styles.avatarTxt}>{r.student_name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}</Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.name}>{r.name}</Text>
-                <Text style={styles.email}>{r.email}</Text>
-                <Text style={styles.meta}>{r.year} · {r.department}</Text>
-                <Text style={styles.date}>{format(new Date(r.registeredAt), "MMM d, HH:mm")}</Text>
+                <Text style={styles.name}>{r.student_name}</Text>
+                <Text style={styles.email}>{r.student_email}</Text>
+                <Text style={styles.meta}>{r.student_year ?? ""}{r.student_year && r.student_department ? " · " : ""}{r.student_department ?? ""}</Text>
+                <Text style={styles.date}>{format(new Date(r.registered_at), "MMM d, HH:mm")}</Text>
               </View>
             </View>
             <TouchableOpacity
               style={[styles.attBtn, attendance[r.id] ? styles.attBtnActive : styles.attBtnInactive]}
-              onPress={() => toggleAttendance(r.id)}
+              onPress={() => handleToggleAttendance(r.id)}
             >
               <Ionicons
                 name={attendance[r.id] ? "checkmark-circle" : "ellipse-outline"}

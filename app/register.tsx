@@ -7,8 +7,6 @@ import { Link, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/auth-context";
 
-type Role = "student" | "admin";
-
 function getPasswordStrength(p: string): { label: string; color: string; width: string } {
   if (p.length === 0) return { label: "", color: "#E5E7EB", width: "0%" };
   if (p.length < 6) return { label: "Weak", color: "#EF4444", width: "33%" };
@@ -18,7 +16,6 @@ function getPasswordStrength(p: string): { label: string; color: string; width: 
 
 export default function RegisterScreen() {
   const { register } = useAuth();
-  const [role, setRole] = useState<Role>("student");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [department, setDepartment] = useState("");
@@ -46,9 +43,13 @@ export default function RegisterScreen() {
       return;
     }
     setLoading(true);
-    const result = await register({ name, email, password, role, department, year });
+    const result = await register({ name, email, password, role: "student", department, year });
     setLoading(false);
-    if (!result.success) Alert.alert("Error", result.error);
+    if (!result.success) {
+      Alert.alert("Error", result.error);
+      return;
+    }
+    router.replace("/");
   };
 
   return (
@@ -66,32 +67,10 @@ export default function RegisterScreen() {
         <Text style={styles.heading}>Create account</Text>
         <Text style={styles.sub}>Join CampusEvents today</Text>
 
-        {/* Role selector */}
-        <View style={styles.roleWrap}>
-          {(["student", "admin"] as Role[]).map((r) => (
-            <TouchableOpacity
-              key={r}
-              style={[styles.roleBtn, role === r && styles.roleBtnActive]}
-              onPress={() => setRole(r)}
-            >
-              <Ionicons
-                name={r === "student" ? "person" : "briefcase"}
-                size={16}
-                color={role === r ? "#fff" : "#6B7280"}
-              />
-              <Text style={[styles.roleTxt, role === r && styles.roleTxtActive]}>
-                {r === "student" ? "Student" : "Organizer / Faculty"}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
         <Field label="Full Name *" value={name} onChangeText={setName} placeholder="Your full name" />
         <Field label="Email *" value={email} onChangeText={setEmail} placeholder="you@college.edu" keyboardType="email-address" autoCapitalize="none" />
         <Field label="Department" value={department} onChangeText={setDepartment} placeholder="e.g. Computer Science" />
-        {role === "student" && (
-          <Field label="Year" value={year} onChangeText={setYear} placeholder="e.g. 2nd Year" />
-        )}
+        <Field label="Year" value={year} onChangeText={setYear} placeholder="e.g. 2nd Year" />
         <Field label="Phone" value={phone} onChangeText={setPhone} placeholder="10-digit mobile number" keyboardType="phone-pad" />
 
         {/* Password */}
