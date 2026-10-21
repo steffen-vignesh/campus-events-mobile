@@ -105,7 +105,7 @@ export default function EventsScreen() {
       </View>
 
       {/* Category chips */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll} contentContainerStyle={styles.chips}>
         {[{ value: "all", label: "All" }, ...CATEGORIES].map((c) => (
           <TouchableOpacity
             key={c.value}
@@ -375,7 +375,8 @@ const styles = StyleSheet.create({
   searchWrap: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", borderRadius: 14, borderWidth: 1, borderColor: "#E5E7EB", marginHorizontal: 20, marginBottom: 12, paddingRight: 12 },
   searchIcon: { paddingHorizontal: 12 },
   searchInput: { flex: 1, paddingVertical: 11, fontSize: 15, color: "#111827" },
-  chips: { paddingHorizontal: 20, gap: 8, paddingBottom: 12 },
+  chipScroll: { flexGrow: 0, flexShrink: 0, height: 48 },
+  chips: { paddingHorizontal: 20, gap: 8, paddingBottom: 12, alignItems: "flex-start" },
   chip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: "#fff", borderWidth: 1, borderColor: "#E5E7EB" },
   chipActive: { backgroundColor: "#4F46E5", borderColor: "#4F46E5" },
   chipTxt: { fontSize: 12, fontWeight: "600", color: "#6B7280" },
