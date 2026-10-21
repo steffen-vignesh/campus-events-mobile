@@ -1,14 +1,13 @@
 import { useState, useEffect } from "react";
-import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, FlatList,
-  SafeAreaView, Image, ActivityIndicator,
-} from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, FlatList, Image, ActivityIndicator } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
 import { type Event, isEventPast, getCategoryColor, Category } from "@/lib/mock-data";
 import { getAdaptedEvents, getMyRegistrations, getMyBookmarks, addBookmark, removeBookmark } from "@/lib/db";
 import { useAuth } from "@/contexts/auth-context";
+import { EventImage } from "@/components/EventImage";
 
 type Tab = "registered" | "bookmarks" | "history";
 
@@ -152,7 +151,7 @@ function MiniEventCard({ event, isBookmarked, onBookmark, onPress }: any) {
   const past = isEventPast(event);
   return (
     <TouchableOpacity style={[styles.miniCard, past && { opacity: 0.72 }]} onPress={onPress} activeOpacity={0.85}>
-      <Image source={{ uri: event.bannerImage }} style={styles.miniImg} />
+      <EventImage uri={event.bannerImage} style={styles.miniImg} />
       <View style={styles.miniBody}>
         <View style={styles.miniTop}>
           <View style={[styles.catBadge, { backgroundColor: cat.bg }]}>

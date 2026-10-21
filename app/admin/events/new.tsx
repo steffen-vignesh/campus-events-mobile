@@ -1,13 +1,35 @@
 import { useState } from "react";
-import {
-  View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet,
-  SafeAreaView, Alert,
-} from "react-native";
+import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { CATEGORIES } from "@/lib/mock-data";
+import { useAuth } from "@/contexts/auth-context";
+import { createEvent } from "@/lib/db";
+import { pickImage, uploadImage } from "@/lib/upload";
+import { EventImage } from "@/components/EventImage";
+
+// Same category names the website uses, so filters match on both apps.
+const WEB_CATEGORIES = ["Workshop", "Seminar", "Competition", "Cultural", "Sports", "Guest Lecture", "Hackathon", "Other", "Field Trip"];
+
+// "09:00 AM" or "14:30" -> "HH:MM" (24h), or null if unreadable
+function to24h(input: string): string | null {
+  const m = input.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (!m) return null;
+  let h = parseInt(m[1], 10);
+  const min = m[2];
+  const ap = m[3]?.toUpperCase();
+  if (ap === "PM" && h < 12) h += 12;
+  if (ap === "AM" && h === 12) h = 0;
+  if (h > 23 || parseInt(min, 10) > 59) return null;
+  return `${String(h).padStart(2, "0")}:${min}`;
+}
 
 export default function NewEventScreen() {
+  const { user } = useAuth();
+  const [banner, setBanner] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("technical");
@@ -16,19 +38,69 @@ export default function NewEventScreen() {
   const [venue, setVenue] = useState("");
   const [organizer, setOrganizer] = useState("");
   const [email, setEmail] = useState("");
-  const [deadline, setDeadline] = useState("");
   const [capacity, setCapacity] = useState("100");
   const [fee, setFee] = useState("0");
-  const [eligibility, setEligibility] = useState("Open to all");
 
-  const handlePublish = () => {
-    if (!title || !description || !date || !venue || !organizer || !email || !deadline) {
+  const addBanner = async () => {
+    const asset = await pickImage([16, 9]);
+    if (!asset) return;
+    setUploading(true);
+    try {
+      setBanner(await uploadImage(asset, "banner"));
+    } catch (e) {
+      Alert.alert("Upload failed", e instanceof Error ? e.message : "Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!title || !description || !date || !venue || !organizer || !email) {
       Alert.alert("Missing fields", "Please fill all required fields.");
       return;
     }
-    Alert.alert("Published!", "Your event has been created successfully.", [
-      { text: "OK", onPress: () => router.push("/admin/events") },
-    ]);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) {
+      Alert.alert("Check the date", "Use the format YYYY-MM-DD, e.g. 2026-08-20.");
+      return;
+    }
+    const time24 = to24h(time);
+    if (!time24) {
+      Alert.alert("Check the time", "Use a time like 09:00 AM or 14:30.");
+      return;
+    }
+    const label = CATEGORIES.find((c) => c.value === category)?.label ?? "Other";
+    setPublishing(true);
+    try {
+      await createEvent({
+        title: title.trim(),
+        description: description.trim(),
+        date: date.trim(),
+        end_date: null,
+        time: time24,
+        end_time: null,
+        venue: venue.trim(),
+        category: WEB_CATEGORIES.includes(label) ? label : "Other",
+        status: "upcoming",
+        capacity: parseInt(capacity, 10) || 100,
+        registration_fee: parseFloat(fee) || 0,
+        organizer_name: organizer.trim(),
+        organizer_email: email.trim(),
+        organizer_department: "",
+        tags: [],
+        banner_image: banner,
+        banner_link: null,
+        ticket_url: null,
+        requirements: [],
+        created_by: user?.id ?? null,
+      });
+      Alert.alert("Published!", "Your event has been created.", [
+        { text: "OK", onPress: () => router.push("/admin/events") },
+      ]);
+    } catch (e) {
+      Alert.alert("Could not create event", e instanceof Error ? e.message : "You may not have permission to post events.");
+    } finally {
+      setPublishing(false);
+    }
   };
 
   return (
@@ -62,6 +134,16 @@ export default function NewEventScreen() {
             </View>
           </SectionCard>
 
+          <SectionCard title="Banner Image">
+            {banner ? <EventImage uri={banner} style={{ width: "100%", height: 150, borderRadius: 12, marginBottom: 10 }} /> : null}
+            <TouchableOpacity style={styles.cancelBtn} onPress={addBanner} disabled={uploading}>
+              {uploading
+                ? <ActivityIndicator color="#4F46E5" />
+                : <Text style={styles.cancelTxt}>{banner ? "Change banner" : "Add banner image"}</Text>}
+            </TouchableOpacity>
+            <Text style={{ fontSize: 11, color: "#9CA3AF", marginTop: 6 }}>JPG, PNG, WebP or GIF, up to 4 MB.</Text>
+          </SectionCard>
+
           <SectionCard title="Date, Time & Venue">
             <View style={styles.row}>
               <View style={{ flex: 1 }}>
@@ -75,7 +157,6 @@ export default function NewEventScreen() {
           </SectionCard>
 
           <SectionCard title="Registration">
-            <Field label="Deadline *" value={deadline} onChangeText={setDeadline} placeholder="2026-08-17" keyboardType="numbers-and-punctuation" />
             <View style={styles.row}>
               <View style={{ flex: 1 }}>
                 <Field label="Capacity *" value={capacity} onChangeText={setCapacity} placeholder="100" keyboardType="numeric" />
@@ -84,7 +165,6 @@ export default function NewEventScreen() {
                 <Field label="Fee (₹)" value={fee} onChangeText={setFee} placeholder="0" keyboardType="numeric" />
               </View>
             </View>
-            <Field label="Eligibility" value={eligibility} onChangeText={setEligibility} placeholder="Open to all" />
           </SectionCard>
 
           <SectionCard title="Organizer">
@@ -96,7 +176,7 @@ export default function NewEventScreen() {
             <TouchableOpacity style={styles.cancelBtn} onPress={() => router.back()}>
               <Text style={styles.cancelTxt}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.publishBtn} onPress={handlePublish}>
+            <TouchableOpacity style={[styles.publishBtn, publishing && { opacity: 0.6 }]} onPress={handlePublish} disabled={publishing}>
               <Ionicons name="send" size={18} color="#fff" />
               <Text style={styles.publishTxt}>Publish Event</Text>
             </TouchableOpacity>

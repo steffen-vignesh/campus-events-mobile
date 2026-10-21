@@ -1,14 +1,13 @@
 import { useState, useEffect } from "react";
-import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  SafeAreaView, Image, ActivityIndicator,
-} from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
 import { type Event, isEventPast } from "@/lib/mock-data";
 import { type DbRegistration, getAdaptedEvents, getAllRegistrations } from "@/lib/db";
 import { useAuth } from "@/contexts/auth-context";
+import { EventImage } from "@/components/EventImage";
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
@@ -110,7 +109,7 @@ export default function AdminDashboard() {
                       style={styles.eventRow}
                       onPress={() => router.push(`/admin/events/${event.id}`)}
                     >
-                      <Image source={{ uri: event.bannerImage }} style={styles.eventThumb} />
+                      <EventImage uri={event.bannerImage} style={styles.eventThumb} />
                       <View style={styles.eventInfo}>
                         <Text style={styles.eventTitle} numberOfLines={1}>{event.title}</Text>
                         <Text style={styles.eventDate}>

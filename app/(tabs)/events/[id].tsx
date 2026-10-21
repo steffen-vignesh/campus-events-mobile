@@ -1,18 +1,18 @@
 import { useState, useEffect } from "react";
-import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Image,
-  SafeAreaView, Alert, Share, Linking, ActivityIndicator,
-} from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Alert, Share, Linking, ActivityIndicator } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
 import { type Event, getCategoryColor, isEventPast } from "@/lib/mock-data";
 import { getAdaptedEvent, registerForEvent, isRegisteredForEvent, getMyBookmarks, addBookmark, removeBookmark, getMyEventSurvey } from "@/lib/db";
 import { useAuth } from "@/contexts/auth-context";
+import { EventImage } from "@/components/EventImage";
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [event, setEvent] = useState<Event | null | undefined>(undefined);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
@@ -124,11 +124,11 @@ export default function EventDetailScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Banner */}
         <View style={styles.bannerWrap}>
-          <Image source={{ uri: event.bannerImage }} style={styles.banner} />
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <EventImage uri={event.bannerImage} style={styles.banner} />
+          <TouchableOpacity style={[styles.backBtn, { top: insets.top + 8 }]} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={20} color="#fff" />
           </TouchableOpacity>
-          <View style={styles.bannerTop}>
+          <View style={[styles.bannerTop, { top: insets.top + 12 }]}>
             <View style={[styles.catBadge, { backgroundColor: cat.bg }]}>
               <Text style={[styles.catTxt, { color: cat.text }]}>{event.category}</Text>
             </View>
@@ -300,8 +300,8 @@ const styles = StyleSheet.create({
   backLinkTxt: { color: "#4F46E5", fontSize: 14, fontWeight: "600" },
   bannerWrap: { position: "relative" },
   banner: { width: "100%", height: 260, resizeMode: "cover" },
-  backBtn: { position: "absolute", top: 50, left: 16, width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center" },
-  bannerTop: { position: "absolute", top: 54, right: 16, left: 68, flexDirection: "row", justifyContent: "flex-end", gap: 8 },
+  backBtn: { position: "absolute", left: 16, width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center" },
+  bannerTop: { position: "absolute", right: 16, left: 68, flexDirection: "row", justifyContent: "flex-end", gap: 8 },
   catBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
   catTxt: { fontSize: 11, fontWeight: "700", textTransform: "capitalize" },
   feeBadge: { backgroundColor: "rgba(0,0,0,0.7)", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },

@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
-import {
-  View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet,
-  SafeAreaView, Share, ActivityIndicator,
-} from "react-native";
+import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Share, ActivityIndicator } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";

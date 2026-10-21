@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -22,7 +23,7 @@ export default function ScanScreen() {
     if (scanned) return;
     const eventId = extractEventId(data);
     if (!eventId) {
-      setScanError("That QR code doesn't look like a CampusEvents check-in code.");
+      setScanError("That QR code doesn't look like a Spirits check-in code.");
       return;
     }
     setScanned(true);
@@ -40,7 +41,7 @@ export default function ScanScreen() {
           <Ionicons name="camera-outline" size={48} color="#9CA3AF" />
           <Text style={styles.permTitle}>Camera access needed</Text>
           <Text style={styles.permSub}>
-            CampusEvents needs your camera to scan the check-in QR code at the venue.
+            Spirits needs your camera to scan the check-in QR code at the venue.
           </Text>
           <TouchableOpacity style={styles.permBtn} onPress={requestPermission}>
             <Text style={styles.permBtnTxt}>Grant Camera Access</Text>

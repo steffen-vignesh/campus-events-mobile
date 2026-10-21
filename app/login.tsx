@@ -29,22 +29,6 @@ export default function LoginScreen() {
     router.replace("/");
   };
 
-  const quickLogin = async (role: "admin" | "student") => {
-    const creds: Record<string, [string, string]> = {
-      admin: ["admin@college.edu", "admin123"],
-      student: ["student@college.edu", "student123"],
-    };
-    const [quickEmail, quickPassword] = creds[role];
-    setLoading(true);
-    const result = await login(quickEmail, quickPassword);
-    setLoading(false);
-    if (!result.success) {
-      Alert.alert("Login failed", result.error);
-      return;
-    }
-    router.replace("/");
-  };
-
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
@@ -53,31 +37,13 @@ export default function LoginScreen() {
           <View style={styles.logoBadge}>
             <Ionicons name="school" size={32} color="#fff" />
           </View>
-          <Text style={styles.appName}>CampusEvents</Text>
+          <Text style={styles.appName}>Spirits</Text>
           <Text style={styles.tagline}>Your campus, your events</Text>
         </View>
 
         {/* Card */}
         <View style={styles.card}>
           <Text style={styles.heading}>Sign in</Text>
-
-          {/* Quick role login */}
-          <View style={styles.roleRow}>
-            <TouchableOpacity style={styles.roleBtn} onPress={() => quickLogin("admin")} disabled={loading}>
-              <Ionicons name="shield-checkmark" size={20} color="#4F46E5" />
-              <Text style={styles.roleBtnText}>Organiser</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.roleBtn} onPress={() => quickLogin("student")} disabled={loading}>
-              <Ionicons name="person" size={20} color="#4F46E5" />
-              <Text style={styles.roleBtnText}>Student</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or sign in with email</Text>
-            <View style={styles.dividerLine} />
-          </View>
 
           <View style={styles.field}>
             <Text style={styles.label}>Email</Text>

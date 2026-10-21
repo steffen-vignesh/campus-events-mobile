@@ -1,16 +1,17 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 const SECTIONS = [
-  { title: "1. Acceptance of Terms", body: "By accessing and using CampusEvents, you accept and agree to be bound by these Terms and Conditions. If you do not agree, please do not use the application." },
-  { title: "2. Use of Service", body: "CampusEvents is provided for educational and campus event management purposes only. Users must not misuse the platform for any unlawful or prohibited activities." },
+  { title: "1. Acceptance of Terms", body: "By accessing and using Spirits, you accept and agree to be bound by these Terms and Conditions. If you do not agree, please do not use the application." },
+  { title: "2. Use of Service", body: "Spirits is provided for educational and campus event management purposes only. Users must not misuse the platform for any unlawful or prohibited activities." },
   { title: "3. Account Registration", body: "You must provide accurate and complete information during registration. You are responsible for maintaining the confidentiality of your account credentials." },
   { title: "4. Event Registration", body: "By registering for an event, you agree to attend. Cancellations should be made at least 24 hours before the event. Refund policies are set by individual event organizers." },
   { title: "5. User Conduct", body: "Users must treat all other members with respect. Harassment, spam, or any form of misconduct will result in immediate account suspension." },
-  { title: "6. Intellectual Property", body: "All content on CampusEvents, including logos, designs, and software, is the property of the platform and may not be reproduced without permission." },
-  { title: "7. Privacy", body: "Your use of CampusEvents is subject to our Privacy Policy. By using the service, you consent to the collection and use of your data as described therein." },
-  { title: "8. Limitation of Liability", body: "CampusEvents is not liable for any indirect, incidental, or consequential damages arising from your use of the platform or attendance at any event." },
+  { title: "6. Intellectual Property", body: "All content on Spirits, including logos, designs, and software, is the property of the platform and may not be reproduced without permission." },
+  { title: "7. Privacy", body: "Your use of Spirits is subject to our Privacy Policy. By using the service, you consent to the collection and use of your data as described therein." },
+  { title: "8. Limitation of Liability", body: "Spirits is not liable for any indirect, incidental, or consequential damages arising from your use of the platform or attendance at any event." },
   { title: "9. Modifications", body: "We reserve the right to modify these terms at any time. Continued use of the platform after changes constitutes acceptance of the revised terms." },
   { title: "10. Governing Law", body: "These terms are governed by the laws of India. Any disputes shall be subject to the exclusive jurisdiction of courts in the applicable jurisdiction." },
 ];

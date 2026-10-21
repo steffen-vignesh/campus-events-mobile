@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -20,12 +21,19 @@ const FEATURES: { icon: keyof typeof Ionicons.glyphMap; title: string; body: str
   },
 ];
 
+const STEPS = [
+  { title: "Create your account", body: "Sign up free in about 30 seconds. Your details are saved for every event." },
+  { title: "Register for an event", body: "Browse what's coming up and tap Register. Bookmark ones you're still deciding on." },
+  { title: "Attend and check in", body: "At the venue, scan the event's QR code and confirm. You're marked present." },
+  { title: "Share your feedback", body: "After the event, fill in the short feedback survey so the next one is better." },
+];
+
 export default function WelcomeScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.badge}>
-          <Text style={styles.badgeTxt}>Built after one too many events found out about too late</Text>
+          <Text style={styles.badgeTxt}>You found out after it ended. Again.</Text>
         </View>
 
         <View style={styles.logoBadge}>
@@ -52,15 +60,17 @@ export default function WelcomeScreen() {
           ))}
         </View>
 
-        <View style={styles.stats}>
-          {[
-            { number: "50+", label: "Events / Month" },
-            { number: "1,500+", label: "Students" },
-            { number: "100%", label: "Free" },
-          ].map((s) => (
-            <View key={s.label} style={styles.statItem}>
-              <Text style={styles.statNumber}>{s.number}</Text>
-              <Text style={styles.statLabel}>{s.label}</Text>
+        <Text style={styles.howTitle}>How it works</Text>
+        <View style={styles.features}>
+          {STEPS.map((st, i) => (
+            <View key={st.title} style={styles.featureRow}>
+              <View style={styles.stepNum}>
+                <Text style={styles.stepNumTxt}>{i + 1}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.featureTitle}>{st.title}</Text>
+                <Text style={styles.featureBody}>{st.body}</Text>
+              </View>
             </View>
           ))}
         </View>
@@ -92,10 +102,9 @@ const styles = StyleSheet.create({
   featureIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: "#EEF2FF", alignItems: "center", justifyContent: "center" },
   featureTitle: { fontSize: 14, fontWeight: "700", color: "#111827" },
   featureBody: { fontSize: 12, color: "#6B7280", marginTop: 2, lineHeight: 17 },
-  stats: { flexDirection: "row", gap: 28, marginBottom: 8 },
-  statItem: { alignItems: "center" },
-  statNumber: { fontSize: 18, fontWeight: "800", color: "#111827" },
-  statLabel: { fontSize: 10, color: "#9CA3AF", marginTop: 2, fontWeight: "600" },
+  howTitle: { fontSize: 18, fontWeight: "800", color: "#111827", alignSelf: "flex-start", marginBottom: 14 },
+  stepNum: { width: 30, height: 30, borderRadius: 15, backgroundColor: "#4F46E5", alignItems: "center", justifyContent: "center" },
+  stepNumTxt: { color: "#fff", fontWeight: "800", fontSize: 13 },
   ctaBar: { padding: 20, paddingBottom: 28, gap: 10, borderTopWidth: 1, borderTopColor: "#F0F0F5", backgroundColor: "#F8FAFF" },
   primaryBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#4F46E5", borderRadius: 16, paddingVertical: 15 },
   primaryBtnTxt: { color: "#fff", fontWeight: "700", fontSize: 16 },

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { format, parseISO } from "date-fns";
@@ -43,7 +44,7 @@ export default function AttendScreen() {
         <View style={styles.logoBadge}>
           <Ionicons name="school" size={20} color="#fff" />
         </View>
-        <Text style={styles.logoTxt}>CampusEvents</Text>
+        <Text style={styles.logoTxt}>Spirits</Text>
       </View>
 
       <View style={styles.card}>

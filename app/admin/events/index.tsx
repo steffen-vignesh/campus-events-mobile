@@ -1,13 +1,12 @@
 import { useState, useEffect } from "react";
-import {
-  View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet,
-  SafeAreaView, Image, Alert, ActivityIndicator,
-} from "react-native";
+import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Image, Alert, ActivityIndicator } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
 import { type Event, CATEGORIES, Category, isEventPast, getCategoryColor } from "@/lib/mock-data";
 import { getAdaptedEvents, deleteEvent } from "@/lib/db";
+import { EventImage } from "@/components/EventImage";
 
 export default function AdminEventsScreen() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -120,7 +119,7 @@ export default function AdminEventsScreen() {
             const cat = getCategoryColor(event.category);
             return (
               <View style={[styles.card, past && styles.cardPast]}>
-                <Image source={{ uri: event.bannerImage }} style={styles.cardImg} />
+                <EventImage uri={event.bannerImage} style={styles.cardImg} />
                 <View style={styles.cardBody}>
                   <View style={styles.cardTop}>
                     <View style={[styles.catBadge, { backgroundColor: cat.bg }]}>

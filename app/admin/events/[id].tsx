@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
-import {
-  View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet,
-  SafeAreaView, Alert, ActivityIndicator,
-} from "react-native";
+import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { type Event } from "@/lib/mock-data";

@@ -1,4 +1,5 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -10,7 +11,7 @@ const SECTIONS = [
   { title: "5. Cookies & Analytics", body: "We use analytics tools to understand app usage patterns. This data is anonymized and used solely for improving the platform experience." },
   { title: "6. Data Retention", body: "We retain your personal data for as long as your account is active. You can request deletion of your data by contacting our support team." },
   { title: "7. Your Rights", body: "You have the right to access, correct, or delete your personal information. Contact us at privacy@campusevents.edu to exercise these rights." },
-  { title: "8. Children's Privacy", body: "CampusEvents is designed for college students (18+). We do not knowingly collect data from anyone under 18 years of age." },
+  { title: "8. Children's Privacy", body: "Spirits is designed for college students (18+). We do not knowingly collect data from anyone under 18 years of age." },
   { title: "9. Changes to This Policy", body: "We may update this Privacy Policy periodically. We'll notify you of significant changes via the app or email." },
   { title: "10. Contact Us", body: "If you have questions about this Privacy Policy, please contact us at privacy@campusevents.edu or visit our campus administration office." },
 ];

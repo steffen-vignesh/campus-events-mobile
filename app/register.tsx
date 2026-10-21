@@ -6,6 +6,8 @@ import {
 import { Link, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/auth-context";
+import { ChipSelect } from "@/components/ChipSelect";
+import { STUDY_PROGRAMS, STUDENT_STATUSES, GERMAN_LEVELS } from "@/lib/profile-options";
 
 function getPasswordStrength(p: string): { label: string; color: string; width: string } {
   if (p.length === 0) return { label: "", color: "#E5E7EB", width: "0%" };
@@ -18,9 +20,11 @@ export default function RegisterScreen() {
   const { register } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [department, setDepartment] = useState("");
-  const [year, setYear] = useState("");
   const [phone, setPhone] = useState("");
+  const [homeCountry, setHomeCountry] = useState("");
+  const [studyProgram, setStudyProgram] = useState("");
+  const [studentStatus, setStudentStatus] = useState("");
+  const [germanLevel, setGermanLevel] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [accepted, setAccepted] = useState(false);
@@ -43,7 +47,7 @@ export default function RegisterScreen() {
       return;
     }
     setLoading(true);
-    const result = await register({ name, email, password, role: "student", department, year });
+    const result = await register({ name, email, password, role: "student", phone, homeCountry, studyProgram, studentStatus, germanLevel });
     setLoading(false);
     if (!result.success) {
       Alert.alert("Error", result.error);
@@ -65,13 +69,24 @@ export default function RegisterScreen() {
         </View>
 
         <Text style={styles.heading}>Create account</Text>
-        <Text style={styles.sub}>Join CampusEvents today</Text>
+        <Text style={styles.sub}>Join Spirits today</Text>
 
         <Field label="Full Name *" value={name} onChangeText={setName} placeholder="Your full name" />
         <Field label="Email *" value={email} onChangeText={setEmail} placeholder="you@college.edu" keyboardType="email-address" autoCapitalize="none" />
-        <Field label="Department" value={department} onChangeText={setDepartment} placeholder="e.g. Computer Science" />
-        <Field label="Year" value={year} onChangeText={setYear} placeholder="e.g. 2nd Year" />
-        <Field label="Phone" value={phone} onChangeText={setPhone} placeholder="10-digit mobile number" keyboardType="phone-pad" />
+        <Field label="Mobiltelefon - Mobile phone" value={phone} onChangeText={setPhone} placeholder="+49 170 1234567" keyboardType="phone-pad" />
+        <Field label="Heimatland - Home Country" value={homeCountry} onChangeText={setHomeCountry} placeholder="India" />
+        <View style={styles.field}>
+          <Text style={styles.label}>Was studierst du? - What do you study / name of current study program?</Text>
+          <ChipSelect options={STUDY_PROGRAMS} value={studyProgram} onChange={setStudyProgram} />
+        </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>Welchen Studentenstatus hast du? - What is your student status?</Text>
+          <ChipSelect options={STUDENT_STATUSES} value={studentStatus} onChange={setStudentStatus} />
+        </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>Wie gut sind Ihre Deutschkenntnisse? - What is your level of proficiency in the German language?</Text>
+          <ChipSelect options={GERMAN_LEVELS} value={germanLevel} onChange={setGermanLevel} />
+        </View>
 
         {/* Password */}
         <View style={styles.field}>

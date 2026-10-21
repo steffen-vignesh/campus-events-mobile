@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "CampusEvents",
+    "name": "Spirits",
     "slug": "campus-events-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,7 +9,11 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.campusevents.app"
+      "bundleIdentifier": "com.campusevents.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "buildNumber": "4"
     },
     "android": {
       "package": "com.campusevents.app",
@@ -19,7 +23,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png",
         "backgroundColor": "#4F46E5"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "versionCode": 2
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -30,9 +35,15 @@
       "expo-secure-store",
       "expo-font",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Spirits needs access to your photos so you can set a profile picture and add event banners."
+        }
+      ],
+      [
         "expo-camera",
         {
-          "cameraPermission": "CampusEvents needs camera access to scan event check-in QR codes."
+          "cameraPermission": "Spirits needs camera access to scan event check-in QR codes."
         }
       ]
     ],

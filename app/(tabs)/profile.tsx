@@ -1,13 +1,12 @@
-import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  SafeAreaView, Alert,
-} from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/auth-context";
 import { useState, useEffect } from "react";
 import { getMyRegistrations, getAdaptedEvents, getMyBookmarks } from "@/lib/db";
 import { isEventPast } from "@/lib/mock-data";
+import { Avatar } from "@/components/Avatar";
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
@@ -45,18 +44,18 @@ export default function ProfileScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Profile card */}
         <View style={styles.profileCard}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarTxt}>{user?.name.slice(0, 2).toUpperCase()}</Text>
-          </View>
+          {user && <Avatar userId={user.id} name={user.name} size={80} />}
+          <View style={{ height: 12 }} />
           <Text style={styles.name}>{user?.name}</Text>
           <Text style={styles.email}>{user?.email}</Text>
           <View style={styles.roleBadge}>
             <Ionicons name={user?.role === "admin" ? "briefcase" : "school"} size={13} color="#4F46E5" />
             <Text style={styles.roleText}>{user?.role === "admin" ? "Organizer / Faculty" : "Student"}</Text>
           </View>
-          {user?.department && (
-            <Text style={styles.dept}>{user.department}{user.year ? ` · ${user.year}` : ""}</Text>
-          )}
+          {[user?.studyProgram, user?.studentStatus, user?.homeCountry].filter(Boolean).map((v) => (
+            <Text key={v} style={styles.dept}>{v}</Text>
+          ))}
+          {user?.germanLevel && <Text style={styles.dept}>German: {user.germanLevel}</Text>}
         </View>
 
         {/* Stats */}
@@ -79,7 +78,7 @@ export default function ProfileScreen() {
 
         {/* Menu items */}
         <View style={styles.menu}>
-          <MenuItem icon="person-outline" label="Edit Profile" onPress={() => {}} />
+          <MenuItem icon="person-outline" label="Edit Profile" onPress={() => router.push("/edit-profile" as never)} />
           <MenuItem icon="notifications-outline" label="Notifications" onPress={() => {}} />
           <MenuItem icon="shield-checkmark-outline" label="Privacy Policy" onPress={() => router.push("/privacy")} />
           <MenuItem icon="document-text-outline" label="Terms & Conditions" onPress={() => router.push("/terms")} />
@@ -92,7 +91,7 @@ export default function ProfileScreen() {
           <Text style={styles.logoutTxt}>Sign Out</Text>
         </TouchableOpacity>
 
-        <Text style={styles.version}>CampusEvents v1.0.0</Text>
+        <Text style={styles.version}>Spirits v1.0.0</Text>
       </ScrollView>
     </SafeAreaView>
   );
