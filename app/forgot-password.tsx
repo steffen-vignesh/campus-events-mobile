@@ -42,7 +42,7 @@ export default function ForgotPasswordScreen() {
         <Text style={[styles.sub, { marginTop: -12 }]}>
           Open the link in the email to choose a new password for Spirits. Check your spam folder if it does not arrive.
         </Text>
-        <TouchableOpacity style={styles.btn} onPress={() => router.replace("/login")}>
+        <TouchableOpacity style={[styles.btn, { alignSelf: "stretch" }]} onPress={() => router.replace("/login")}>
           <Text style={styles.btnText}>Back to Sign In</Text>
         </TouchableOpacity>
       </View>
