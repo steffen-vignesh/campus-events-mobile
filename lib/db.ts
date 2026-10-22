@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { WEB_URL } from "@/lib/config";
 import type { Event, Category } from "@/lib/mock-data";
 
 export type DbEvent = {
@@ -332,4 +333,77 @@ export async function getMyEventSurvey(eventId: string): Promise<DbSurvey | null
     .eq("user_id", user.id)
     .maybeSingle();
   return data ?? null;
+}
+
+// ── Notifications ─────────────────────────────────────────────
+
+export type DbNotification = {
+  id: string;
+  user_id: string;
+  title: string;
+  message: string;
+  event_id: string | null;
+  read: boolean;
+  sent_by: string | null;
+  created_at: string;
+};
+
+export async function getMyNotifications(): Promise<DbNotification[]> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) return [];
+  return data ?? [];
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  await supabase.from("notifications").update({ read: true }).eq("id", id);
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase.from("notifications").update({ read: true }).eq("user_id", user.id).eq("read", false);
+}
+
+// Organizer: send a message about an event to its registered students, or to all students.
+// Returns how many students were notified.
+export async function sendEventNotification(
+  eventId: string,
+  title: string,
+  message: string,
+  audience: "registered" | "all"
+): Promise<number> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not signed in.");
+  let ids: string[] = [];
+  if (audience === "registered") {
+    const { data, error } = await supabase.from("registrations").select("user_id").eq("event_id", eventId);
+    if (error) throw error;
+    ids = [...new Set((data ?? []).map((r) => r.user_id as string).filter(Boolean))];
+  } else {
+    const { data, error } = await supabase.from("profiles").select("id").eq("role", "student");
+    if (error) throw error;
+    ids = (data ?? []).map((p) => p.id as string);
+  }
+  if (ids.length === 0) return 0;
+  const { error } = await supabase.from("notifications").insert(
+    ids.map((uid) => ({ user_id: uid, title, message, event_id: eventId, sent_by: user.id }))
+  );
+  if (error) throw error;
+  // Also send it as a phone push notification (best effort).
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    fetch(`${WEB_URL}/api/push/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ userIds: ids, title, message, eventId }),
+    }).catch(() => {});
+  }
+  return ids.length;
 }

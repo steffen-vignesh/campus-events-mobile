@@ -8,6 +8,7 @@ import { type Event, getCategoryColor, isEventPast } from "@/lib/mock-data";
 import { getAdaptedEvent, registerForEvent, isRegisteredForEvent, getMyBookmarks, addBookmark, removeBookmark, getMyEventSurvey } from "@/lib/db";
 import { useAuth } from "@/contexts/auth-context";
 import { EventImage } from "@/components/EventImage";
+import { addEventToCalendar } from "@/lib/calendar";
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -87,7 +88,10 @@ export default function EventDetailScreen() {
         fee: event.registrationFee,
       });
       setIsRegistered(true);
-      Alert.alert("Registered!", "You're registered for this event. Check your email for confirmation.");
+      Alert.alert("Registered!", "You're registered for this event. Add it to your calendar so you don't miss it.", [
+        { text: "Not now", style: "cancel" },
+        { text: "Add to calendar", onPress: () => event && addEventToCalendar(event) },
+      ]);
     } catch (err: any) {
       Alert.alert("Registration failed", err.message ?? "Please try again.");
     } finally {
@@ -242,6 +246,18 @@ export default function EventDetailScreen() {
             </Text>
           </View>
 
+          {/* Add to calendar — registered students, event still ahead */}
+          {isRegistered && !isPast && (
+            <TouchableOpacity style={styles.calCard} onPress={() => addEventToCalendar(event)} activeOpacity={0.7}>
+              <Ionicons name="calendar-outline" size={20} color="#4F46E5" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.calTitle}>Add to your calendar</Text>
+                <Text style={styles.calSub}>Get it in your phone's calendar so you don't miss it</Text>
+              </View>
+              <Ionicons name="add-circle" size={24} color="#4F46E5" />
+            </TouchableOpacity>
+          )}
+
           {/* Feedback survey — past events the student registered for */}
           {isPast && isRegistered && (
             surveySubmitted ? (
@@ -292,6 +308,9 @@ function InfoCard({ icon, label, value }: { icon: string; label: string; value: 
 }
 
 const styles = StyleSheet.create({
+  calCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#EEF2FF", borderRadius: 16, padding: 14, borderWidth: 1, borderColor: "#E0E7FF", marginBottom: 14 },
+  calTitle: { fontSize: 14, fontWeight: "800", color: "#312E81" },
+  calSub: { fontSize: 12, color: "#6366F1", marginTop: 2 },
   safe: { flex: 1, backgroundColor: "#fff" },
   loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
   notFound: { flex: 1, justifyContent: "center", alignItems: "center" },

@@ -24,7 +24,8 @@
         "backgroundColor": "#4F46E5"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 3
+      "versionCode": 3,
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -44,6 +45,18 @@
         "expo-camera",
         {
           "cameraPermission": "Spirits needs camera access to scan event check-in QR codes."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#4F46E5"
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Spirits adds events you register for to your calendar."
         }
       ]
     ],

@@ -11,6 +11,7 @@ import { type Event, CATEGORIES, Category, isEventPast, getCategoryColor } from 
 import { getAdaptedEvents, getMyBookmarks, addBookmark, removeBookmark } from "@/lib/db";
 import { useAuth } from "@/contexts/auth-context";
 import { EventImage } from "@/components/EventImage";
+import { NotificationBell } from "@/components/NotificationBell";
 
 export default function EventsScreen() {
   const { user } = useAuth();
@@ -86,6 +87,7 @@ export default function EventsScreen() {
               <Ionicons name="calendar" size={16} color={view === "calendar" ? "#fff" : "#6B7280"} />
             </TouchableOpacity>
           </View>
+          <NotificationBell />
           <View style={styles.avatar}>
             <Text style={styles.avatarTxt}>{user?.name.slice(0, 2).toUpperCase()}</Text>
           </View>

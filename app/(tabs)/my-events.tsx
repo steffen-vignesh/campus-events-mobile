@@ -8,6 +8,7 @@ import { type Event, isEventPast, getCategoryColor, Category } from "@/lib/mock-
 import { getAdaptedEvents, getMyRegistrations, getMyBookmarks, addBookmark, removeBookmark } from "@/lib/db";
 import { useAuth } from "@/contexts/auth-context";
 import { EventImage } from "@/components/EventImage";
+import { NotificationBell } from "@/components/NotificationBell";
 
 type Tab = "registered" | "bookmarks" | "history";
 
@@ -69,10 +70,13 @@ export default function MyEventsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>My Events</Text>
-        <TouchableOpacity style={styles.scanBtn} onPress={() => router.push("/scan")}>
-          <Ionicons name="qr-code-outline" size={18} color="#4F46E5" />
-          <Text style={styles.scanBtnTxt}>Scan to Check In</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <TouchableOpacity style={styles.scanBtn} onPress={() => router.push("/scan")}>
+            <Ionicons name="qr-code-outline" size={18} color="#4F46E5" />
+            <Text style={styles.scanBtnTxt}>Scan to Check In</Text>
+          </TouchableOpacity>
+          <NotificationBell />
+        </View>
       </View>
 
       {loading ? (

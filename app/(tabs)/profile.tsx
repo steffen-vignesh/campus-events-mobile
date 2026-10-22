@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { getMyRegistrations, getAdaptedEvents, getMyBookmarks } from "@/lib/db";
 import { isEventPast } from "@/lib/mock-data";
 import { Avatar } from "@/components/Avatar";
+import { NotificationBell } from "@/components/NotificationBell";
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
@@ -41,6 +42,10 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingTop: 8 }}>
+        <Text style={{ fontSize: 22, fontWeight: "800", color: "#111827" }}>Profile</Text>
+        <NotificationBell />
+      </View>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Profile card */}
         <View style={styles.profileCard}>
@@ -79,7 +84,7 @@ export default function ProfileScreen() {
         {/* Menu items */}
         <View style={styles.menu}>
           <MenuItem icon="person-outline" label="Edit Profile" onPress={() => router.push("/edit-profile" as never)} />
-          <MenuItem icon="notifications-outline" label="Notifications" onPress={() => {}} />
+          <MenuItem icon="notifications-outline" label="Notifications" onPress={() => router.push("/notifications" as never)} />
           <MenuItem icon="shield-checkmark-outline" label="Privacy Policy" onPress={() => router.push("/privacy")} />
           <MenuItem icon="document-text-outline" label="Terms & Conditions" onPress={() => router.push("/terms")} />
           <MenuItem icon="help-circle-outline" label="Help & Support" onPress={() => {}} />
