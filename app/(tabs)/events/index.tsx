@@ -90,9 +90,6 @@ export default function EventsScreen() {
             </TouchableOpacity>
           </View>
           <NotificationBell />
-          <View style={styles.avatar}>
-            <Text style={styles.avatarTxt}>{user?.name.slice(0, 2).toUpperCase()}</Text>
-          </View>
         </View>
       </View>
 
@@ -350,8 +347,6 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
   greeting: { fontSize: 20, fontWeight: "700", color: "#111827" },
   sub: { fontSize: 12, color: "#9CA3AF", marginTop: 2 },
-  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#EEF2FF", alignItems: "center", justifyContent: "center" },
-  avatarTxt: { fontSize: 14, fontWeight: "700", color: "#4F46E5" },
   viewToggle: { flexDirection: "row", backgroundColor: "#EEF2FF", borderRadius: 12, padding: 3, gap: 2 },
   viewToggleBtn: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 9 },
   viewToggleBtnActive: { backgroundColor: "#4F46E5" },
