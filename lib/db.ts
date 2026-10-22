@@ -483,17 +483,19 @@ export async function sendEventNotification(
   eventId: string,
   title: string,
   message: string,
-  audience: "registered" | "waiting" | "all"
+  audience: "registered" | "waiting" | "noshows" | "all"
 ): Promise<number> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in.");
   let ids: string[] = [];
-  if (audience === "registered" || audience === "waiting") {
-    const { data, error } = await supabase
+  if (audience === "registered" || audience === "waiting" || audience === "noshows") {
+    let query = supabase
       .from("registrations")
       .select("user_id")
       .eq("event_id", eventId)
-      .eq("status", audience === "registered" ? "confirmed" : "waitlist");
+      .eq("status", audience === "waiting" ? "waitlist" : "confirmed");
+    if (audience === "noshows") query = query.eq("attended", false);
+    const { data, error } = await query;
     if (error) throw error;
     ids = [...new Set((data ?? []).map((r) => r.user_id as string).filter(Boolean))];
   } else {

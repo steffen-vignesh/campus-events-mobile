@@ -26,6 +26,16 @@ export default function AdminLayout() {
       <Stack.Screen name="events/[id]/registrants" />
       <Stack.Screen name="events/[id]/announce" />
       <Stack.Screen name="events/[id]/survey" />
+      <Stack.Screen name="students/index" />
+      <Stack.Screen name="students/[id]" />
+      <Stack.Screen name="jobs/index" />
+      <Stack.Screen name="jobs/new" />
+      <Stack.Screen name="jobs/[id]/applicants" />
+      <Stack.Screen name="announcements" />
+      <Stack.Screen name="reports" />
+      <Stack.Screen name="attendance" />
+      <Stack.Screen name="profile" />
+      <Stack.Screen name="organizers" />
     </Stack>
   );
 }
