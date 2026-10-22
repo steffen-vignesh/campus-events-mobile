@@ -68,9 +68,10 @@ export function adaptDbEvent(e: DbEvent, registrationCount = 0): Event {
 }
 
 async function getRegistrationCounts(): Promise<Record<string, number>> {
-  const { data } = await supabase.from("registrations").select("event_id");
+  // Security-definer function: real totals for everyone, individual rows stay private.
+  const { data } = await supabase.rpc("event_registration_counts");
   const counts: Record<string, number> = {};
-  (data ?? []).forEach((r) => { counts[r.event_id] = (counts[r.event_id] ?? 0) + 1; });
+  ((data ?? []) as { event_id: string; registrations: number }[]).forEach((r) => { counts[r.event_id] = Number(r.registrations); });
   return counts;
 }
 
@@ -101,11 +102,8 @@ export async function getEvent(id: string): Promise<DbEvent | null> {
 }
 
 export async function getAdaptedEvent(id: string): Promise<Event | null> {
-  const [raw, { count }] = await Promise.all([
-    getEvent(id),
-    supabase.from("registrations").select("*", { count: "exact", head: true }).eq("event_id", id),
-  ]);
-  return raw ? adaptDbEvent(raw, count ?? 0) : null;
+  const [raw, counts] = await Promise.all([getEvent(id), getRegistrationCounts()]);
+  return raw ? adaptDbEvent(raw, counts[id] ?? 0) : null;
 }
 
 export async function createEvent(payload: Omit<DbEvent, "id" | "created_at" | "updated_at">): Promise<DbEvent> {
