@@ -24,7 +24,7 @@
         "backgroundColor": "#4F46E5"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 3,
+      "versionCode": 6,
       "googleServicesFile": "./google-services.json"
     },
     "web": {
