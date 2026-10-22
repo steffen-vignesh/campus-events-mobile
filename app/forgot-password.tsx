@@ -1,11 +1,32 @@
 import { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from "react-native";
+import { View, Text, TextInput, ActivityIndicator, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { supabase } from "@/lib/supabase";
+import { WEB_URL } from "@/lib/config";
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  // The email link opens the Spirits web page, where the new password is set.
+  const sendLink = async () => {
+    const address = email.trim();
+    if (!address || loading) return;
+    setError("");
+    setLoading(true);
+    const { error: err } = await supabase.auth.resetPasswordForEmail(address, {
+      redirectTo: `${WEB_URL}/reset-password`,
+    });
+    setLoading(false);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    setSent(true);
+  };
 
   if (sent) {
     return (
@@ -16,7 +37,10 @@ export default function ForgotPasswordScreen() {
         <Text style={styles.heading}>Check your email</Text>
         <Text style={styles.sub}>
           We sent a password reset link to{"\n"}
-          <Text style={{ fontWeight: "700", color: "#111827" }}>{email}</Text>
+          <Text style={{ fontWeight: "700", color: "#111827" }}>{email.trim()}</Text>
+        </Text>
+        <Text style={[styles.sub, { marginTop: -12 }]}>
+          Open the link in the email to choose a new password for Spirits. Check your spam folder if it does not arrive.
         </Text>
         <TouchableOpacity style={styles.btn} onPress={() => router.replace("/login")}>
           <Text style={styles.btnText}>Back to Sign In</Text>
@@ -47,14 +71,16 @@ export default function ForgotPasswordScreen() {
           onChangeText={setEmail}
           keyboardType="email-address"
           autoCapitalize="none"
+          autoCorrect={false}
         />
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <TouchableOpacity
           style={[styles.btn, !email && styles.btnDisabled]}
-          onPress={() => email && setSent(true)}
-          disabled={!email}
+          onPress={sendLink}
+          disabled={!email || loading}
         >
-          <Text style={styles.btnText}>Send Reset Link</Text>
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Send Reset Link</Text>}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -74,5 +100,6 @@ const styles = StyleSheet.create({
   input: { backgroundColor: "#F9FAFB", borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: "#111827", marginBottom: 20 },
   btn: { backgroundColor: "#4F46E5", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
   btnDisabled: { backgroundColor: "#A5B4FC" },
+  error: { color: "#DC2626", fontSize: 13, marginTop: -12, marginBottom: 16 },
   btnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
 });
