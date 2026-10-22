@@ -37,7 +37,7 @@ export default function CheckInScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.qrCard}>
           <QrCode value={url} size={270} />
-          <Text style={styles.qrHint}>Students: open Spirits → tap the scan icon → point here</Text>
+          <Text style={styles.qrHint}>Students: open Spirits → My Events → Scan to Check In → point here</Text>
         </View>
 
         <View style={styles.counter}>
