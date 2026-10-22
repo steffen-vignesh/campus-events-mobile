@@ -335,6 +335,36 @@ export async function getMyEventSurvey(eventId: string): Promise<DbSurvey | null
   return data ?? null;
 }
 
+export async function getEventSurveys(eventId: string): Promise<DbSurvey[]> {
+  const { data, error } = await supabase
+    .from("event_surveys")
+    .select("*")
+    .eq("event_id", eventId)
+    .order("submitted_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function addSurveyQuestion(
+  eventId: string,
+  question: string,
+  type: DbSurveyQuestion["type"],
+  sortOrder: number
+): Promise<DbSurveyQuestion> {
+  const { data, error } = await supabase
+    .from("survey_questions")
+    .insert({ event_id: eventId, question, type, required: false, sort_order: sortOrder })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteSurveyQuestion(id: string): Promise<void> {
+  const { error } = await supabase.from("survey_questions").delete().eq("id", id);
+  if (error) throw error;
+}
+
 // ── Notifications ─────────────────────────────────────────────
 
 export type DbNotification = {

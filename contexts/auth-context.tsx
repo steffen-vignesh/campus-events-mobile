@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { registerForPushNotifications } from "@/lib/push";
 
-export type UserRole = "admin" | "student";
+export type UserRole = "admin" | "student" | "super_admin" | "event_head";
+export const isStaffRole = (r?: string) => r === "admin" || r === "super_admin" || r === "event_head";
 
 export interface User {
   id: string;

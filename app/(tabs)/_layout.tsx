@@ -1,6 +1,6 @@
 import { Tabs, Redirect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuth, isStaffRole } from "@/contexts/auth-context";
 import { View, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -16,6 +16,7 @@ export default function TabsLayout() {
     );
   }
 
+  if (user && isStaffRole(user.role)) return <Redirect href="/admin" />;
   if (!user || user.role !== "student") return <Redirect href="/login" />;
 
   return (

@@ -8,22 +8,10 @@ import { useAuth } from "@/contexts/auth-context";
 import { createEvent } from "@/lib/db";
 import { pickImage, uploadImage } from "@/lib/upload";
 import { EventImage } from "@/components/EventImage";
+import { DateField, TimeField } from "@/components/DateTimeFields";
 
 // Same category names the website uses, so filters match on both apps.
 const WEB_CATEGORIES = ["Workshop", "Seminar", "Competition", "Cultural", "Sports", "Guest Lecture", "Hackathon", "Other", "Field Trip"];
-
-// "09:00 AM" or "14:30" -> "HH:MM" (24h), or null if unreadable
-function to24h(input: string): string | null {
-  const m = input.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
-  if (!m) return null;
-  let h = parseInt(m[1], 10);
-  const min = m[2];
-  const ap = m[3]?.toUpperCase();
-  if (ap === "PM" && h < 12) h += 12;
-  if (ap === "AM" && h === 12) h = 0;
-  if (h > 23 || parseInt(min, 10) > 59) return null;
-  return `${String(h).padStart(2, "0")}:${min}`;
-}
 
 export default function NewEventScreen() {
   const { user } = useAuth();
@@ -34,10 +22,10 @@ export default function NewEventScreen() {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("technical");
   const [date, setDate] = useState("");
-  const [time, setTime] = useState("09:00 AM");
+  const [time, setTime] = useState("10:00");
   const [venue, setVenue] = useState("");
-  const [organizer, setOrganizer] = useState("");
-  const [email, setEmail] = useState("");
+  const [organizer, setOrganizer] = useState(user?.name ?? "");
+  const [email, setEmail] = useState(user?.email ?? "");
   const [capacity, setCapacity] = useState("100");
   const [fee, setFee] = useState("0");
 
@@ -56,27 +44,18 @@ export default function NewEventScreen() {
 
   const handlePublish = async () => {
     if (!title || !description || !date || !venue || !organizer || !email) {
-      Alert.alert("Missing fields", "Please fill all required fields.");
-      return;
-    }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) {
-      Alert.alert("Check the date", "Use the format YYYY-MM-DD, e.g. 2026-08-20.");
-      return;
-    }
-    const time24 = to24h(time);
-    if (!time24) {
-      Alert.alert("Check the time", "Use a time like 09:00 AM or 14:30.");
+      Alert.alert("Almost there", "Please add a title, description, date and venue.");
       return;
     }
     const label = CATEGORIES.find((c) => c.value === category)?.label ?? "Other";
     setPublishing(true);
     try {
-      await createEvent({
+      const created = await createEvent({
         title: title.trim(),
         description: description.trim(),
         date: date.trim(),
         end_date: null,
-        time: time24,
+        time,
         end_time: null,
         venue: venue.trim(),
         category: WEB_CATEGORIES.includes(label) ? label : "Other",
@@ -93,9 +72,7 @@ export default function NewEventScreen() {
         requirements: [],
         created_by: user?.id ?? null,
       });
-      Alert.alert("Published!", "Your event has been created.", [
-        { text: "OK", onPress: () => router.push("/admin/events") },
-      ]);
+      router.replace(`/admin/events/${created.id}` as any);
     } catch (e) {
       Alert.alert("Could not create event", e instanceof Error ? e.message : "You may not have permission to post events.");
     } finally {
@@ -111,7 +88,7 @@ export default function NewEventScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={22} color="#374151" />
           </TouchableOpacity>
-          <Text style={styles.title}>Create Event</Text>
+          <Text style={styles.title}>Create event</Text>
         </View>
 
         <View style={styles.content}>
@@ -145,14 +122,10 @@ export default function NewEventScreen() {
           </SectionCard>
 
           <SectionCard title="Date, Time & Venue">
-            <View style={styles.row}>
-              <View style={{ flex: 1 }}>
-                <Field label="Start Date *" value={date} onChangeText={setDate} placeholder="2026-08-20" keyboardType="numbers-and-punctuation" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Field label="Start Time *" value={time} onChangeText={setTime} placeholder="09:00 AM" />
-              </View>
-            </View>
+            <Text style={styles.label}>Date *</Text>
+            <View style={styles.field}><DateField value={date} onChange={setDate} /></View>
+            <Text style={styles.label}>Start time *</Text>
+            <View style={styles.field}><TimeField value={time} onChange={setTime} /></View>
             <Field label="Venue *" value={venue} onChangeText={setVenue} placeholder="Main Auditorium, Block A" />
           </SectionCard>
 
@@ -167,7 +140,7 @@ export default function NewEventScreen() {
             </View>
           </SectionCard>
 
-          <SectionCard title="Organizer">
+          <SectionCard title="Contact (filled in for you)">
             <Field label="Organizer Name *" value={organizer} onChangeText={setOrganizer} placeholder="Dr. Ramesh Kumar" />
             <Field label="Contact Email *" value={email} onChangeText={setEmail} placeholder="organizer@college.edu" keyboardType="email-address" autoCapitalize="none" />
           </SectionCard>
@@ -178,7 +151,7 @@ export default function NewEventScreen() {
             </TouchableOpacity>
             <TouchableOpacity style={[styles.publishBtn, publishing && { opacity: 0.6 }]} onPress={handlePublish} disabled={publishing}>
               <Ionicons name="send" size={18} color="#fff" />
-              <Text style={styles.publishTxt}>Publish Event</Text>
+              <Text style={styles.publishTxt}>Publish event</Text>
             </TouchableOpacity>
           </View>
         </View>

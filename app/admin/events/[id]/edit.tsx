@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { type Event } from "@/lib/mock-data";
-import { getAdaptedEvent, updateEvent, sendEventNotification } from "@/lib/db";
+import { getAdaptedEvent, updateEvent } from "@/lib/db";
 
 export default function AdminEditEventScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -18,10 +18,6 @@ export default function AdminEditEventScreen() {
   const [capacity, setCapacity] = useState("100");
   const [eligibility, setEligibility] = useState("");
   const [saving, setSaving] = useState(false);
-  const [msgTitle, setMsgTitle] = useState("");
-  const [msgBody, setMsgBody] = useState("");
-  const [audience, setAudience] = useState<"registered" | "all">("registered");
-  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -61,25 +57,6 @@ export default function AdminEditEventScreen() {
     );
   }
 
-  const handleSend = async () => {
-    if (!msgTitle.trim() || !msgBody.trim()) { Alert.alert("Write a title and a message first."); return; }
-    setSending(true);
-    try {
-      const n = await sendEventNotification(id!, msgTitle.trim(), msgBody.trim(), audience);
-      if (n === 0) {
-        Alert.alert("No one to notify", audience === "registered" ? "No students have registered yet. Choose All students." : "There are no students yet.");
-      } else {
-        Alert.alert("Sent", `${n} student${n === 1 ? "" : "s"} will see this in the app.`);
-        setMsgTitle("");
-        setMsgBody("");
-      }
-    } catch (err: any) {
-      Alert.alert("Could not send", err.message ?? "Please try again.");
-    } finally {
-      setSending(false);
-    }
-  };
-
   const handleSave = async () => {
     if (!title) { Alert.alert("Title required"); return; }
     setSaving(true);
@@ -116,14 +93,7 @@ export default function AdminEditEventScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={22} color="#374151" />
           </TouchableOpacity>
-          <Text style={styles.title}>Edit Event</Text>
-          <TouchableOpacity
-            style={styles.regBtn}
-            onPress={() => router.push(`/admin/events/${id}/registrants`)}
-          >
-            <Ionicons name="people" size={18} color="#4F46E5" />
-            <Text style={styles.regBtnTxt}>{event.registrations}</Text>
-          </TouchableOpacity>
+          <Text style={styles.title}>Edit details</Text>
         </View>
 
         <View style={styles.content}>
@@ -155,25 +125,6 @@ export default function AdminEditEventScreen() {
           </View>
 
           <Field label="Eligibility" value={eligibility} onChangeText={setEligibility} placeholder="Open to all" />
-
-          <View style={styles.sendCard}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
-              <Ionicons name="megaphone-outline" size={18} color="#4F46E5" />
-              <Text style={styles.sendTitle}>Send an update to students</Text>
-            </View>
-            <View style={{ flexDirection: "row", gap: 8, marginBottom: 10 }}>
-              {([["registered", "Registered"], ["all", "All students"]] as const).map(([k, label]) => (
-                <TouchableOpacity key={k} onPress={() => setAudience(k)} style={[styles.audChip, audience === k && styles.audChipOn]}>
-                  <Text style={[styles.audTxt, audience === k && styles.audTxtOn]}>{label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <TextInput style={styles.sendInput} value={msgTitle} onChangeText={setMsgTitle} placeholder="Title, e.g. Venue changed" placeholderTextColor="#9CA3AF" maxLength={100} />
-            <TextInput style={[styles.sendInput, { height: 90, textAlignVertical: "top" }]} value={msgBody} onChangeText={setMsgBody} placeholder="Message" placeholderTextColor="#9CA3AF" multiline maxLength={500} />
-            <TouchableOpacity style={[styles.sendBtn, sending && { opacity: 0.6 }]} onPress={handleSend} disabled={sending}>
-              {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendBtnTxt}>Send notification</Text>}
-            </TouchableOpacity>
-          </View>
 
           <View style={styles.infoCard}>
             <Ionicons name="information-circle-outline" size={18} color="#4F46E5" />

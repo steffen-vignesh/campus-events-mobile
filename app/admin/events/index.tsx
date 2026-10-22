@@ -150,7 +150,7 @@ export default function AdminEventsScreen() {
                   <View style={styles.actions}>
                     <TouchableOpacity
                       style={styles.actionBtn}
-                      onPress={() => router.push(`/admin/events/${event.id}`)}
+                      onPress={() => router.push(`/admin/events/${event.id}` as any)}
                     >
                       <Ionicons name="create-outline" size={18} color="#4F46E5" />
                       <Text style={styles.actionTxt}>Edit</Text>

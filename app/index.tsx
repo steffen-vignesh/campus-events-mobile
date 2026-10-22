@@ -1,5 +1,5 @@
 import { Redirect } from "expo-router";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuth, isStaffRole } from "@/contexts/auth-context";
 import { View, ActivityIndicator } from "react-native";
 
 export default function Index() {
@@ -14,6 +14,6 @@ export default function Index() {
   }
 
   if (!user) return <Redirect href="/welcome" />;
-  if (user.role === "admin") return <Redirect href="/admin" />;
+  if (isStaffRole(user.role)) return <Redirect href="/admin" />;
   return <Redirect href="/(tabs)/events" />;
 }

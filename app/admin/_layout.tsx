@@ -1,5 +1,5 @@
 import { Stack, Redirect } from "expo-router";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuth, isStaffRole } from "@/contexts/auth-context";
 import { View, ActivityIndicator } from "react-native";
 
 export default function AdminLayout() {
@@ -13,15 +13,19 @@ export default function AdminLayout() {
     );
   }
 
-  if (!user || user.role !== "admin") return <Redirect href="/login" />;
+  if (!user || !isStaffRole(user.role)) return <Redirect href="/login" />;
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="events/index" />
       <Stack.Screen name="events/new" />
-      <Stack.Screen name="events/[id]" />
+      <Stack.Screen name="events/[id]/index" />
+      <Stack.Screen name="events/[id]/edit" />
+      <Stack.Screen name="events/[id]/checkin" />
       <Stack.Screen name="events/[id]/registrants" />
+      <Stack.Screen name="events/[id]/announce" />
+      <Stack.Screen name="events/[id]/survey" />
     </Stack>
   );
 }
