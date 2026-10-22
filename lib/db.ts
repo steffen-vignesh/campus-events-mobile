@@ -28,6 +28,8 @@ export type DbEvent = {
   updated_at: string;
 };
 
+export type RegistrationStatus = "confirmed" | "waitlist" | "cancelled";
+
 export type DbRegistration = {
   id: string;
   event_id: string;
@@ -39,9 +41,13 @@ export type DbRegistration = {
   payment_status: string;
   attended: boolean;
   registered_at: string;
+  status: RegistrationStatus;
+  cancel_reason: string | null;
+  cancelled_at: string | null;
+  cancelled_from: string | null;
 };
 
-export function adaptDbEvent(e: DbEvent, registrationCount = 0): Event {
+export function adaptDbEvent(e: DbEvent, registrationCount = 0, waitlistCount = 0): Event {
   return {
     id: e.id,
     title: e.title,
@@ -66,14 +72,20 @@ export function adaptDbEvent(e: DbEvent, registrationCount = 0): Event {
     status: e.status as Event["status"],
     views: 0,
     registrations: registrationCount,
+    waitlistCount,
   };
 }
 
-async function getRegistrationCounts(): Promise<Record<string, number>> {
+type RegistrationCounts = Record<string, { seats: number; waiting: number }>;
+
+async function getRegistrationCounts(): Promise<RegistrationCounts> {
   // Security-definer function: real totals for everyone, individual rows stay private.
+  // "seats" = confirmed registrations, "waiting" = people on the waiting list.
   const { data } = await supabase.rpc("event_registration_counts");
-  const counts: Record<string, number> = {};
-  ((data ?? []) as { event_id: string; registrations: number }[]).forEach((r) => { counts[r.event_id] = Number(r.registrations); });
+  const counts: RegistrationCounts = {};
+  ((data ?? []) as { event_id: string; registrations: number; waiting?: number }[]).forEach((r) => {
+    counts[r.event_id] = { seats: Number(r.registrations), waiting: Number(r.waiting ?? 0) };
+  });
   return counts;
 }
 
@@ -90,7 +102,7 @@ export async function getEvents(): Promise<DbEvent[]> {
 
 export async function getAdaptedEvents(): Promise<Event[]> {
   const [events, counts] = await Promise.all([getEvents(), getRegistrationCounts()]);
-  return events.map((e) => adaptDbEvent(e, counts[e.id] ?? 0));
+  return events.map((e) => adaptDbEvent(e, counts[e.id]?.seats ?? 0, counts[e.id]?.waiting ?? 0));
 }
 
 export async function getEvent(id: string): Promise<DbEvent | null> {
@@ -105,7 +117,7 @@ export async function getEvent(id: string): Promise<DbEvent | null> {
 
 export async function getAdaptedEvent(id: string): Promise<Event | null> {
   const [raw, counts] = await Promise.all([getEvent(id), getRegistrationCounts()]);
-  return raw ? adaptDbEvent(raw, counts[id] ?? 0) : null;
+  return raw ? adaptDbEvent(raw, counts[id]?.seats ?? 0, counts[id]?.waiting ?? 0) : null;
 }
 
 export async function createEvent(payload: Omit<DbEvent, "id" | "created_at" | "updated_at">): Promise<DbEvent> {
@@ -143,11 +155,18 @@ export async function getMyRegistrations(): Promise<DbRegistration[]> {
     .from("registrations")
     .select("*")
     .eq("user_id", user.id)
+    .neq("status", "cancelled")
     .order("registered_at", { ascending: false });
   if (error) throw error;
   return data ?? [];
 }
 
+// Only students who hold a seat (not waiting, not cancelled).
+export async function getEventSeatRegistrations(eventId: string): Promise<DbRegistration[]> {
+  return (await getEventRegistrations(eventId)).filter((r) => r.status === "confirmed");
+}
+
+// Every registration of an event, whatever its status (organizer lists).
 export async function getEventRegistrations(eventId: string): Promise<DbRegistration[]> {
   const { data, error } = await supabase
     .from("registrations")
@@ -158,36 +177,78 @@ export async function getEventRegistrations(eventId: string): Promise<DbRegistra
   return data ?? [];
 }
 
+// Returns "confirmed" if a seat was free, or "waitlist" if the event is full. The database decides.
 export async function registerForEvent(eventId: string, info: {
   name: string;
   email: string;
   department?: string;
   year?: string;
   fee: number;
-}): Promise<void> {
+}): Promise<"confirmed" | "waitlist"> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
-  const { error } = await supabase.from("registrations").insert({
-    event_id: eventId,
-    user_id: user.id,
-    student_name: info.name,
-    student_email: info.email,
-    student_department: info.department ?? null,
-    student_year: info.year ?? null,
-    payment_status: info.fee === 0 ? "free" : "pending",
+  const { data, error } = await supabase.rpc("register_for_event", {
+    p_event_id: eventId,
+    p_name: info.name,
+    p_email: info.email,
+    p_department: info.department ?? null,
+    p_year: info.year ?? null,
+    p_payment_status: info.fee === 0 ? "free" : "pending",
   });
   if (error) throw error;
+  return data === "waitlist" ? "waitlist" : "confirmed";
 }
 
-export async function cancelRegistration(eventId: string): Promise<void> {
+// Cancel a seat (a reason is required) or leave the waiting list (reason optional).
+// The server hands the freed seat to the first student waiting and sends the alerts.
+export async function cancelRegistration(eventId: string, reason = ""): Promise<{ was: string; moved_up: number }> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error("Not authenticated");
+  const res = await fetch(`${WEB_URL}/api/registrations/cancel`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+    body: JSON.stringify({ eventId, reason }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error ?? "Could not cancel. Please try again.");
+  return json;
+}
+
+export type MyRegistrationState = { status: RegistrationStatus | null; position: number | null };
+
+export async function getMyRegistrationState(eventId: string): Promise<MyRegistrationState> {
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
-  const { error } = await supabase
+  if (!user) return { status: null, position: null };
+  const { data } = await supabase
     .from("registrations")
-    .delete()
+    .select("status")
     .eq("event_id", eventId)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const status = (data?.status as RegistrationStatus | undefined) ?? null;
+  let position: number | null = null;
+  if (status === "waitlist") {
+    const { data: pos } = await supabase.rpc("my_waitlist_position", { p_event_id: eventId });
+    position = typeof pos === "number" ? pos : null;
+  }
+  return { status, position };
+}
+
+// Organizer: move a student from the waiting list into a seat (they get a notification).
+export async function moveToRegistered(registrationId: string): Promise<void> {
+  const { data, error } = await supabase.rpc("set_registration_status", { p_registration_id: registrationId, p_status: "confirmed" });
   if (error) throw error;
+  const r = data as { user_id: string; event_id: string; title: string; moved_up: boolean };
+  if (r?.moved_up) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      fetch(`${WEB_URL}/api/push/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ userIds: [r.user_id], title: "You're in!", message: `A spot opened up for ${r.title}. Your registration is now confirmed.`, eventId: r.event_id }),
+      }).catch(() => {});
+    }
+  }
 }
 
 export async function isRegisteredForEvent(eventId: string): Promise<boolean> {
@@ -198,6 +259,7 @@ export async function isRegisteredForEvent(eventId: string): Promise<boolean> {
     .select("id")
     .eq("event_id", eventId)
     .eq("user_id", user.id)
+    .eq("status", "confirmed")
     .maybeSingle();
   return !!data;
 }
@@ -421,13 +483,17 @@ export async function sendEventNotification(
   eventId: string,
   title: string,
   message: string,
-  audience: "registered" | "all"
+  audience: "registered" | "waiting" | "all"
 ): Promise<number> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in.");
   let ids: string[] = [];
-  if (audience === "registered") {
-    const { data, error } = await supabase.from("registrations").select("user_id").eq("event_id", eventId);
+  if (audience === "registered" || audience === "waiting") {
+    const { data, error } = await supabase
+      .from("registrations")
+      .select("user_id")
+      .eq("event_id", eventId)
+      .eq("status", audience === "registered" ? "confirmed" : "waitlist");
     if (error) throw error;
     ids = [...new Set((data ?? []).map((r) => r.user_id as string).filter(Boolean))];
   } else {

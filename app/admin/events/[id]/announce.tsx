@@ -19,7 +19,7 @@ export default function AnnounceScreen() {
   const [event, setEvent] = useState<Event | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [audience, setAudience] = useState<"registered" | "all">("registered");
+  const [audience, setAudience] = useState<"registered" | "waiting" | "all">("registered");
   const [sending, setSending] = useState(false);
 
   useEffect(() => { if (id) getAdaptedEvent(id).then(setEvent).catch(() => {}); }, [id]);
@@ -30,7 +30,7 @@ export default function AnnounceScreen() {
     try {
       const n = await sendEventNotification(id!, title.trim(), body.trim(), audience);
       if (n === 0) {
-        Alert.alert("No one to notify", audience === "registered" ? "No students have registered yet. Choose All students." : "There are no students yet.");
+        Alert.alert("No one to notify", audience === "registered" ? "No students have registered yet. Choose All students." : audience === "waiting" ? "Nobody is on the waiting list." : "There are no students yet.");
       } else {
         Alert.alert("Sent", `${n} student${n === 1 ? "" : "s"} will see this in the app and on their phone.`, [{ text: "OK", onPress: () => router.back() }]);
       }
@@ -48,7 +48,7 @@ export default function AnnounceScreen() {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <Text style={styles.label}>1. Who gets it?</Text>
           <View style={styles.row}>
-            {([["registered", "Registered students"], ["all", "All students"]] as const).map(([k, l]) => (
+            {([["registered", "Registered"], ["waiting", "Waiting list"], ["all", "All students"]] as const).map(([k, l]) => (
               <TouchableOpacity key={k} onPress={() => setAudience(k)} style={[styles.choice, audience === k && styles.choiceOn]}>
                 <Text style={[styles.choiceTxt, audience === k && styles.choiceTxtOn]}>{l}</Text>
               </TouchableOpacity>

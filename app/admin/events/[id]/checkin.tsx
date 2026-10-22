@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { type Event } from "@/lib/mock-data";
-import { getAdaptedEvent, getEventRegistrations } from "@/lib/db";
+import { getAdaptedEvent, getEventSeatRegistrations } from "@/lib/db";
 import { WEB_URL } from "@/lib/config";
 import { StaffHeader } from "@/components/StaffHeader";
 import { QrCode } from "@/components/QrCode";
@@ -21,7 +21,7 @@ export default function CheckInScreen() {
     if (!id) return;
     getAdaptedEvent(id).then(setEvent).catch(() => {});
     const load = () =>
-      getEventRegistrations(id)
+      getEventSeatRegistrations(id)
         .then((r) => { setRegistered(r.length); setCheckedIn(r.filter((x) => x.attended).length); })
         .catch(() => {});
     load();

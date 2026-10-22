@@ -17,7 +17,8 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     Promise.all([getAdaptedEvents(), getMyRegistrations(), getMyBookmarks()])
-      .then(([events, regs, bms]) => {
+      .then(([events, allRegs, bms]) => {
+        const regs = allRegs.filter((r) => r.status === "confirmed");
         const upcoming = regs.filter((r) => {
           const evt = events.find((e) => e.id === r.event_id);
           return evt && !isEventPast(evt);

@@ -19,12 +19,20 @@ export default function EventHub() {
   const [registered, setRegistered] = useState(0);
   const [checkedIn, setCheckedIn] = useState(0);
   const [responses, setResponses] = useState(0);
+  const [waiting, setWaiting] = useState(0);
+  const [cancelled, setCancelled] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
       if (!id) return;
       getAdaptedEvent(id).then(setEvent).catch(() => setEvent(null));
-      getEventRegistrations(id).then((r) => { setRegistered(r.length); setCheckedIn(r.filter((x) => x.attended).length); }).catch(() => {});
+      getEventRegistrations(id).then((all) => {
+        const seats = all.filter((x) => x.status === "confirmed");
+        setRegistered(seats.length);
+        setCheckedIn(seats.filter((x) => x.attended).length);
+        setWaiting(all.filter((x) => x.status === "waitlist").length);
+        setCancelled(all.filter((x) => x.status === "cancelled").length);
+      }).catch(() => {});
       getEventSurveys(id).then((s) => setResponses(s.length)).catch(() => {});
     }, [id])
   );
@@ -43,7 +51,7 @@ export default function EventHub() {
   const go = (path: string) => () => router.push(`/admin/events/${id}/${path}` as any);
   const tiles: Tile[] = [
     { key: "qr", icon: "qr-code", color: "#4F46E5", bg: "#EEF2FF", title: "Check-in QR", hint: `${checkedIn} of ${registered} checked in`, onPress: go("checkin") },
-    { key: "reg", icon: "people", color: "#059669", bg: "#ECFDF5", title: "Registrations", hint: `${registered} registered`, onPress: go("registrants") },
+    { key: "reg", icon: "people", color: "#059669", bg: "#ECFDF5", title: "Registrations", hint: `${registered} registered${waiting ? ` · ${waiting} waiting` : ""}${cancelled ? ` · ${cancelled} cancelled` : ""}`, onPress: go("registrants") },
     { key: "ann", icon: "megaphone", color: "#D97706", bg: "#FFFBEB", title: "Notify students", hint: "Send an update", onPress: go("announce") },
     { key: "sur", icon: "star", color: "#DB2777", bg: "#FDF2F8", title: "Survey", hint: `${responses} responses`, onPress: go("survey") },
     {

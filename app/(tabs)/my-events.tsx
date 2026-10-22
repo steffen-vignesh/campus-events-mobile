@@ -19,12 +19,18 @@ export default function MyEventsScreen() {
   const [allEvents, setAllEvents] = useState<Event[]>([]);
   const [registeredEventIds, setRegisteredEventIds] = useState<string[]>([]);
   const [attendedEventIds, setAttendedEventIds] = useState<string[]>([]);
+  const [waitingEventIds, setWaitingEventIds] = useState<string[]>([]);
   const [bookmarks, setBookmarks] = useState<string[]>([]);
 
   useEffect(() => {
     Promise.all([getAdaptedEvents(), getMyRegistrations(), getMyBookmarks()])
-      .then(([events, regs, bms]) => {
+      .then(([events, allRegs, bms]) => {
         setAllEvents(events);
+        const regs = allRegs.filter((r) => r.status === "confirmed");
+        setWaitingEventIds(allRegs.filter((r) => {
+          const evt = events.find((e) => e.id === r.event_id);
+          return r.status === "waitlist" && evt && !isEventPast(evt);
+        }).map((r) => r.event_id));
         const upcoming = regs.filter((r) => {
           const evt = events.find((e) => e.id === r.event_id);
           return evt && !isEventPast(evt);
@@ -53,6 +59,7 @@ export default function MyEventsScreen() {
   };
 
   const registeredEvents = allEvents.filter((e) => registeredEventIds.includes(e.id));
+  const waitingEvents = allEvents.filter((e) => waitingEventIds.includes(e.id));
   const bookmarkedEvents = allEvents.filter((e) => bookmarks.includes(e.id));
   const attendedEvents = allEvents.filter((e) => attendedEventIds.includes(e.id))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -125,6 +132,16 @@ export default function MyEventsScreen() {
             keyExtractor={(e) => e.id}
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
+            ListHeaderComponent={tab === "registered" && waitingEvents.length > 0 ? (
+              <View style={styles.waitBox}>
+                <Text style={styles.waitBoxTitle}>On the waiting list ({waitingEvents.length})</Text>
+                {waitingEvents.map((e) => (
+                  <TouchableOpacity key={e.id} onPress={() => router.push(`/(tabs)/events/${e.id}`)} accessibilityLabel={`Waiting: ${e.title}`}>
+                    <Text style={styles.waitBoxItem} numberOfLines={1}>{e.title}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : null}
             renderItem={({ item }) => (
               <MiniEventCard
                 event={item}
@@ -186,6 +203,9 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#F8FAFF" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
   title: { fontSize: 22, fontWeight: "800", color: "#111827" },
+  waitBox: { backgroundColor: "#FFFBEB", borderWidth: 1, borderColor: "#FDE68A", borderRadius: 16, padding: 14, marginBottom: 12, gap: 6 },
+  waitBoxTitle: { fontSize: 13.5, fontWeight: "800", color: "#92400E" },
+  waitBoxItem: { fontSize: 13.5, color: "#B45309", fontWeight: "600", paddingVertical: 3 },
   scanBtn: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#EEF2FF", borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12 },
   scanBtnTxt: { fontSize: 12, fontWeight: "700", color: "#4F46E5" },
   loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center" },

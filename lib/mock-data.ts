@@ -25,7 +25,8 @@ export interface Event {
   contactEmail: string;
   registrationDeadline: string;
   capacity: number;
-  registrations: number;
+  registrations: number; // seats taken (confirmed registrations)
+  waitlistCount?: number; // people waiting for a seat
   views: number;
   registrationFee: number;
   eligibility: string;

@@ -5,11 +5,12 @@ import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
 import { type Event, getCategoryColor, isEventPast, isEventOver } from "@/lib/mock-data";
-import { getAdaptedEvent, registerForEvent, isRegisteredForEvent, didIAttend, getMyBookmarks, addBookmark, removeBookmark, getMyEventSurvey } from "@/lib/db";
+import { getAdaptedEvent, registerForEvent, getMyRegistrationState, cancelRegistration, didIAttend, getMyBookmarks, addBookmark, removeBookmark, getMyEventSurvey } from "@/lib/db";
 import { useAuth } from "@/contexts/auth-context";
 import { EventImage } from "@/components/EventImage";
 import { ImageViewer } from "@/components/ImageViewer";
 import { addEventToCalendar } from "@/lib/calendar";
+import { CancelRegistrationModal } from "@/components/CancelRegistrationModal";
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -19,6 +20,11 @@ export default function EventDetailScreen() {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
   const [registering, setRegistering] = useState(false);
+  const [onWaitlist, setOnWaitlist] = useState(false);
+  const [position, setPosition] = useState<number | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelError, setCancelError] = useState("");
   const [viewerOpen, setViewerOpen] = useState(false);
   const [surveySubmitted, setSurveySubmitted] = useState(false);
   const [attended, setAttended] = useState(false);
@@ -27,18 +33,29 @@ export default function EventDetailScreen() {
     if (!id) return;
     Promise.all([
       getAdaptedEvent(id),
-      isRegisteredForEvent(id),
+      getMyRegistrationState(id),
       getMyBookmarks(),
       getMyEventSurvey(id),
       didIAttend(id),
-    ]).then(([evt, registered, bms, survey, didAttend]) => {
+    ]).then(([evt, reg, bms, survey, didAttend]) => {
       setEvent(evt);
-      setIsRegistered(registered);
+      setIsRegistered(reg.status === "confirmed");
+      setOnWaitlist(reg.status === "waitlist");
+      setPosition(reg.position);
       setIsBookmarked(bms.includes(id));
       setSurveySubmitted(!!survey);
       setAttended(didAttend);
     }).catch(() => setEvent(null));
   }, [id]);
+
+  const refresh = async () => {
+    if (!id) return;
+    const [evt, reg] = await Promise.all([getAdaptedEvent(id), getMyRegistrationState(id)]);
+    setEvent(evt);
+    setIsRegistered(reg.status === "confirmed");
+    setOnWaitlist(reg.status === "waitlist");
+    setPosition(reg.position);
+  };
 
   const handleBookmark = async () => {
     const next = !isBookmarked;
@@ -82,25 +99,44 @@ export default function EventDetailScreen() {
   const hasTicketUrl = event.registrationFee > 0 && event.ticketUrl;
 
   const handleRegister = async () => {
-    if (isRegistered || !user) return;
+    if (isRegistered || onWaitlist || !user) return;
     setRegistering(true);
     try {
-      await registerForEvent(id!, {
+      const result = await registerForEvent(id!, {
         name: user.name,
         email: user.email,
         department: user.department,
         year: user.year,
         fee: event.registrationFee,
       });
-      setIsRegistered(true);
-      Alert.alert("Registered!", "You're registered for this event. Add it to your calendar so you don't miss it.", [
-        { text: "Not now", style: "cancel" },
-        { text: "Add to calendar", onPress: () => event && addEventToCalendar(event) },
-      ]);
+      await refresh().catch(() => {});
+      if (result === "waitlist") {
+        Alert.alert("You're on the waiting list", "The event is full. If a seat opens, you move up automatically and we notify you.");
+      } else {
+        Alert.alert("Registered!", "You're registered for this event. Add it to your calendar so you don't miss it.", [
+          { text: "Not now", style: "cancel" },
+          { text: "Add to calendar", onPress: () => event && addEventToCalendar(event) },
+        ]);
+      }
     } catch (err: any) {
       Alert.alert("Registration failed", err.message ?? "Please try again.");
     } finally {
       setRegistering(false);
+    }
+  };
+
+  const handleCancel = async (reason: string) => {
+    setCancelBusy(true);
+    setCancelError("");
+    try {
+      await cancelRegistration(id!, reason);
+      setCancelOpen(false);
+      await refresh().catch(() => {});
+      Alert.alert(onWaitlist ? "You left the waiting list" : "Registration cancelled", onWaitlist ? "" : "Your seat goes to the next person on the waiting list.");
+    } catch (err: any) {
+      setCancelError(err.message ?? "Could not cancel. Please try again.");
+    } finally {
+      setCancelBusy(false);
     }
   };
 
@@ -110,18 +146,24 @@ export default function EventDetailScreen() {
 
   const registerLabel = () => {
     if (isRegistered) return "✓ You're Registered!";
+    if (onWaitlist) return position ? `On the waiting list (#${position})` : "On the waiting list";
     if (isPast) return "Event Ended";
-    if (isFull) return "Event Full";
     if (isPastDeadline) return "Registration Closed";
+    if (isFull) return "Event full: join waiting list";
     if (hasTicketUrl) return `Buy Ticket — ₹${event.registrationFee}`;
     return event.registrationFee === 0 ? "Register for Free" : `Register — ₹${event.registrationFee}`;
   };
 
-  const registerDisabled = isRegistered || isPast || isFull || isPastDeadline;
-  const registerBg = isRegistered ? "#10B981" : registerDisabled ? "#9CA3AF" : "#4F46E5";
+  const registerDisabled = isRegistered || onWaitlist || isPast || isPastDeadline;
+  const registerBg = isRegistered ? "#10B981" : onWaitlist ? "#D97706" : registerDisabled ? "#9CA3AF" : isFull ? "#D97706" : "#4F46E5";
 
   const handleRegisterPress = () => {
-    if (hasTicketUrl && !isRegistered && !registerDisabled) {
+    if (isFull && !isRegistered && !onWaitlist && !registerDisabled) {
+      Alert.alert("Join the waiting list?", "The event is full. If a seat opens, you move up automatically, in order, and we notify you.", [
+        { text: "Not now", style: "cancel" },
+        { text: "Join waiting list", onPress: handleRegister },
+      ]);
+    } else if (hasTicketUrl && !isRegistered && !registerDisabled) {
       Linking.openURL(event.ticketUrl!);
     } else {
       handleRegister();
@@ -258,6 +300,32 @@ export default function EventDetailScreen() {
             </Text>
           </View>
 
+          {isFull && (event.waitlistCount ?? 0) > 0 && !onWaitlist && (
+            <Text style={styles.waitHint}>Event full · {event.waitlistCount} on the waiting list</Text>
+          )}
+
+          {onWaitlist && (
+            <View style={styles.waitCard}>
+              <Ionicons name="time-outline" size={20} color="#B45309" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.waitTitle}>You're on the waiting list{position ? ` (position ${position})` : ""}</Text>
+                <Text style={styles.waitSub}>If a seat opens, you move up automatically and we notify you.</Text>
+              </View>
+              {!isPast && (
+                <TouchableOpacity onPress={() => { setCancelError(""); setCancelOpen(true); }} accessibilityLabel="Leave waiting list">
+                  <Text style={styles.leaveTxt}>Leave</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {isRegistered && !isPast && (
+            <TouchableOpacity style={styles.cancelRegBtn} onPress={() => { setCancelError(""); setCancelOpen(true); }} accessibilityLabel="Cancel registration">
+              <Ionicons name="close-circle-outline" size={18} color="#DC2626" />
+              <Text style={styles.cancelRegTxt}>Cancel registration</Text>
+            </TouchableOpacity>
+          )}
+
           {/* Add to calendar — registered students, event still ahead */}
           {isRegistered && !isPast && (
             <TouchableOpacity style={styles.calCard} onPress={() => addEventToCalendar(event)} activeOpacity={0.7}>
@@ -294,6 +362,16 @@ export default function EventDetailScreen() {
           <View style={styles.spacer} />
         </View>
       </ScrollView>
+
+      <CancelRegistrationModal
+        visible={cancelOpen}
+        mode={onWaitlist ? "waitlist" : "seat"}
+        eventTitle={event.title}
+        busy={cancelBusy}
+        error={cancelError}
+        onClose={() => setCancelOpen(false)}
+        onConfirm={handleCancel}
+      />
 
       {/* Sticky register button */}
       <View style={styles.stickyBar}>
@@ -382,6 +460,13 @@ const styles = StyleSheet.create({
   deadlineTxt: { fontSize: 13, color: "#6B7280" },
   surveyDoneCard: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#ECFDF5", borderRadius: 14, padding: 14, marginBottom: 12 },
   surveyDoneTxt: { fontSize: 13, fontWeight: "600", color: "#166534" },
+  waitHint: { fontSize: 12.5, color: "#6B7280", marginBottom: 10 },
+  waitCard: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#FFFBEB", borderRadius: 14, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: "#FDE68A" },
+  waitTitle: { fontSize: 13.5, fontWeight: "700", color: "#92400E" },
+  waitSub: { fontSize: 12, color: "#B45309", marginTop: 2 },
+  leaveTxt: { fontSize: 13.5, fontWeight: "800", color: "#B45309", paddingHorizontal: 6, paddingVertical: 8 },
+  cancelRegBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1.5, borderColor: "#FECACA", backgroundColor: "#FEF2F2", borderRadius: 14, paddingVertical: 13, marginBottom: 12 },
+  cancelRegTxt: { fontSize: 14, fontWeight: "700", color: "#DC2626" },
   surveyNote: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: "#EEF2FF", borderRadius: 14, padding: 14, marginBottom: 12 },
   surveyNoteTxt: { flex: 1, fontSize: 13, color: "#3730A3", lineHeight: 19 },
   surveyBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#4F46E5", borderRadius: 14, paddingVertical: 13, marginBottom: 12 },

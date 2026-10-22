@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Share, ActivityIndicator } from "react-native";
+import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Share, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
 import { type Event } from "@/lib/mock-data";
-import { type DbRegistration, getAdaptedEvent, getEventRegistrations, toggleAttendance } from "@/lib/db";
+import { type DbRegistration, getAdaptedEvent, getEventRegistrations, toggleAttendance, moveToRegistered } from "@/lib/db";
 
 export default function RegistrantsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -14,10 +14,11 @@ export default function RegistrantsScreen() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [attendance, setAttendance] = useState<Record<string, boolean>>({});
+  const [view, setView] = useState<"registered" | "waiting" | "cancelled">("registered");
+  const [moving, setMoving] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!id) return;
-    Promise.all([getAdaptedEvent(id), getEventRegistrations(id)])
+  const load = () =>
+    Promise.all([getAdaptedEvent(id!), getEventRegistrations(id!)])
       .then(([evt, regs]) => {
         setEvent(evt);
         setRegistrants(regs);
@@ -25,6 +26,10 @@ export default function RegistrantsScreen() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
+
+  useEffect(() => {
+    if (id) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const handleToggleAttendance = async (regId: string) => {
@@ -53,19 +58,48 @@ export default function RegistrantsScreen() {
     );
   }
 
-  const filtered = registrants.filter(
-    (r) =>
-      r.student_name.toLowerCase().includes(search.toLowerCase()) ||
-      r.student_email.toLowerCase().includes(search.toLowerCase()) ||
-      (r.student_department ?? "").toLowerCase().includes(search.toLowerCase())
-  );
+  // Three groups: people with a seat, people waiting (in join order), and people who cancelled (newest first).
+  const confirmedList = registrants.filter((r) => r.status === "confirmed");
+  const waitingList = registrants.filter((r) => r.status === "waitlist")
+    .sort((a, b) => new Date(a.registered_at).getTime() - new Date(b.registered_at).getTime());
+  const cancelledList = registrants.filter((r) => r.status === "cancelled")
+    .sort((a, b) => new Date(b.cancelled_at ?? 0).getTime() - new Date(a.cancelled_at ?? 0).getTime());
+  const matches = (r: DbRegistration) =>
+    r.student_name.toLowerCase().includes(search.toLowerCase()) ||
+    r.student_email.toLowerCase().includes(search.toLowerCase()) ||
+    (r.student_department ?? "").toLowerCase().includes(search.toLowerCase());
+  const shown = (view === "registered" ? confirmedList : view === "waiting" ? waitingList : cancelledList).filter(matches);
+  const attendedCount = confirmedList.filter((r) => attendance[r.id]).length;
+  const isFull = event.registrations >= event.capacity;
 
-  const attendedCount = Object.values(attendance).filter(Boolean).length;
-
+  const moveUp = (r: DbRegistration) => {
+    const run = async () => {
+      setMoving(r.id);
+      try {
+        await moveToRegistered(r.id);
+        await load();
+      } catch (e: any) {
+        Alert.alert("Could not move", e.message ?? "Please try again.");
+      } finally {
+        setMoving(null);
+      }
+    };
+    Alert.alert(
+      "Move to registered?",
+      isFull
+        ? `The event is full (${event.registrations}/${event.capacity}). Move ${r.student_name} up anyway?`
+        : `${r.student_name} gets a seat and a notification.`,
+      [{ text: "Not now", style: "cancel" }, { text: "Move up", onPress: run }]
+    );
+  };
   const handleExport = () => {
-    const lines = ["Name,Email,Year,Department,Attended"];
-    registrants.forEach((r) => {
-      lines.push(`${r.student_name},${r.student_email},${r.student_year ?? ""},${r.student_department ?? ""},${attendance[r.id] ? "Yes" : "No"}`);
+    const q = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const lines = [["Name", "Email", "Year", "Department", "Attended", "Status", "Cancel reason"].map(q).join(",")];
+    [...confirmedList, ...waitingList, ...cancelledList].forEach((r) => {
+      lines.push([
+        r.student_name, r.student_email, r.student_year ?? "", r.student_department ?? "", attendance[r.id] ? "Yes" : "No",
+        r.status === "confirmed" ? "Registered" : r.status === "waitlist" ? "Waiting" : "Cancelled", r.cancel_reason ?? "",
+      ].map((v) => q(String(v))).join(","));
     });
     Share.share({ message: lines.join("\n"), title: `${event.title} Registrants` });
   };
@@ -89,14 +123,24 @@ export default function RegistrantsScreen() {
       {/* Stats */}
       <View style={styles.statsRow}>
         {[
-          { label: "Total", value: registrants.length, color: "#4F46E5", bg: "#EEF2FF" },
-          { label: "Attended", value: attendedCount, color: "#059669", bg: "#ECFDF5" },
-          { label: "No-show", value: registrants.length - attendedCount, color: "#9CA3AF", bg: "#F3F4F6" },
+          { label: "Registered", value: confirmedList.length, color: "#4F46E5", bg: "#EEF2FF", go: "registered" as const },
+          { label: "Attended", value: attendedCount, color: "#059669", bg: "#ECFDF5", go: "registered" as const },
+          { label: "Waiting", value: waitingList.length, color: "#B45309", bg: "#FFFBEB", go: "waiting" as const },
+          { label: "Cancelled", value: cancelledList.length, color: "#DC2626", bg: "#FEF2F2", go: "cancelled" as const },
         ].map((s) => (
-          <View key={s.label} style={[styles.statCard, { backgroundColor: s.bg }]}>
+          <TouchableOpacity key={s.label} style={[styles.statCard, { backgroundColor: s.bg }]} onPress={() => setView(s.go)} accessibilityLabel={s.label}>
             <Text style={[styles.statValue, { color: s.color }]}>{s.value}</Text>
             <Text style={[styles.statLabel, { color: s.color }]}>{s.label}</Text>
-          </View>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Which list to show */}
+      <View style={styles.segment}>
+        {([["registered", `Registered (${confirmedList.length})`], ["waiting", `Waiting (${waitingList.length})`], ["cancelled", `Cancelled (${cancelledList.length})`]] as const).map(([k, label]) => (
+          <TouchableOpacity key={k} style={[styles.segBtn, view === k && styles.segBtnOn]} onPress={() => setView(k)}>
+            <Text style={[styles.segTxt, view === k && styles.segTxtOn]}>{label}</Text>
+          </TouchableOpacity>
         ))}
       </View>
 
@@ -114,11 +158,43 @@ export default function RegistrantsScreen() {
 
       {/* Registrant list */}
       <FlatList
-        data={filtered}
+        data={shown}
         keyExtractor={(r) => r.id}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item: r }) => (
+        renderItem={({ item: r }) => view === "waiting" ? (
+          <View style={styles.row}>
+            <View style={styles.rowLeft}>
+              <View style={[styles.avatar, { backgroundColor: "#FFFBEB" }]}>
+                <Text style={[styles.avatarTxt, { color: "#B45309" }]}>#{waitingList.indexOf(r) + 1}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.name}>{r.student_name}</Text>
+                <Text style={styles.email}>{r.student_email}</Text>
+                <Text style={styles.date}>Joined {format(new Date(r.registered_at), "MMM d, HH:mm")}</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.moveBtn} onPress={() => moveUp(r)} disabled={moving === r.id} accessibilityLabel={`Move ${r.student_name} to registered`}>
+              {moving === r.id ? <ActivityIndicator color="#fff" /> : <Text style={styles.moveTxt}>Move up</Text>}
+            </TouchableOpacity>
+          </View>
+        ) : view === "cancelled" ? (
+          <View style={[styles.row, { alignItems: "flex-start" }]}>
+            <View style={styles.rowLeft}>
+              <View style={[styles.avatar, { backgroundColor: "#FEF2F2" }]}>
+                <Ionicons name="close" size={18} color="#DC2626" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.name}>{r.student_name}</Text>
+                <Text style={styles.email}>{r.student_email}</Text>
+                <Text style={styles.reason}>{r.cancel_reason ? `“${r.cancel_reason}”` : "No reason given"}</Text>
+                <Text style={styles.date}>
+                  {r.cancelled_at ? format(new Date(r.cancelled_at), "MMM d, HH:mm") : ""} · {r.cancelled_from === "waitlist" ? "Was waiting" : "Was registered"}
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : (
           <View style={styles.row}>
             <View style={styles.rowLeft}>
               <View style={styles.avatar}>
@@ -147,10 +223,10 @@ export default function RegistrantsScreen() {
           </View>
         )}
         ListEmptyComponent={
-          registrants.length === 0 ? (
+          shown.length === 0 && (view === "registered" ? confirmedList : view === "waiting" ? waitingList : cancelledList).length === 0 ? (
             <View style={styles.center}>
               <Ionicons name="people-outline" size={48} color="#D1D5DB" />
-              <Text style={styles.emptyTxt}>No registrations yet</Text>
+              <Text style={styles.emptyTxt}>{view === "registered" ? "No registrations yet" : view === "waiting" ? "Nobody is waiting" : "No cancellations"}</Text>
             </View>
           ) : (
             <View style={styles.center}>
@@ -172,6 +248,14 @@ const styles = StyleSheet.create({
   title: { fontSize: 18, fontWeight: "800", color: "#111827" },
   sub: { fontSize: 12, color: "#9CA3AF" },
   exportBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: "#EEF2FF", alignItems: "center", justifyContent: "center" },
+  segment: { flexDirection: "row", marginHorizontal: 20, marginBottom: 10, backgroundColor: "#EEF2FF", borderRadius: 14, padding: 3 },
+  segBtn: { flex: 1, paddingVertical: 9, borderRadius: 11, alignItems: "center" },
+  segBtnOn: { backgroundColor: "#4F46E5" },
+  segTxt: { fontSize: 11.5, fontWeight: "700", color: "#6B7280" },
+  segTxtOn: { color: "#fff" },
+  moveBtn: { backgroundColor: "#4F46E5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, minWidth: 78, alignItems: "center" },
+  moveTxt: { color: "#fff", fontWeight: "800", fontSize: 12.5 },
+  reason: { fontSize: 12.5, color: "#374151", marginTop: 3, lineHeight: 18 },
   statsRow: { flexDirection: "row", paddingHorizontal: 20, gap: 10, marginBottom: 14 },
   statCard: { flex: 1, borderRadius: 14, padding: 12, alignItems: "center" },
   statValue: { fontSize: 20, fontWeight: "800" },
