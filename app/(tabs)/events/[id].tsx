@@ -8,6 +8,7 @@ import { type Event, getCategoryColor, isEventPast } from "@/lib/mock-data";
 import { getAdaptedEvent, registerForEvent, isRegisteredForEvent, getMyBookmarks, addBookmark, removeBookmark, getMyEventSurvey } from "@/lib/db";
 import { useAuth } from "@/contexts/auth-context";
 import { EventImage } from "@/components/EventImage";
+import { ImageViewer } from "@/components/ImageViewer";
 import { addEventToCalendar } from "@/lib/calendar";
 
 export default function EventDetailScreen() {
@@ -18,6 +19,7 @@ export default function EventDetailScreen() {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
   const [registering, setRegistering] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
   const [surveySubmitted, setSurveySubmitted] = useState(false);
 
   useEffect(() => {
@@ -128,7 +130,14 @@ export default function EventDetailScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Banner */}
         <View style={styles.bannerWrap}>
-          <EventImage uri={event.bannerImage} style={styles.banner} />
+          <TouchableOpacity activeOpacity={0.9} onPress={() => setViewerOpen(true)} accessibilityLabel="Open image full screen">
+            <EventImage uri={event.bannerImage} style={styles.banner} fit="contain" />
+            <View style={styles.enlargeHint}>
+              <Ionicons name="expand-outline" size={13} color="#fff" />
+              <Text style={styles.enlargeTxt}>Tap to enlarge</Text>
+            </View>
+          </TouchableOpacity>
+          <ImageViewer uri={event.bannerImage} visible={viewerOpen} onClose={() => setViewerOpen(false)} />
           <TouchableOpacity style={[styles.backBtn, { top: insets.top + 8 }]} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={20} color="#fff" />
           </TouchableOpacity>
@@ -318,7 +327,9 @@ const styles = StyleSheet.create({
   backLink: { marginTop: 12 },
   backLinkTxt: { color: "#4F46E5", fontSize: 14, fontWeight: "600" },
   bannerWrap: { position: "relative" },
-  banner: { width: "100%", height: 260, resizeMode: "cover" },
+  banner: { width: "100%", height: 300 },
+  enlargeHint: { position: "absolute", right: 12, bottom: 12, flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(0,0,0,0.55)", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14 },
+  enlargeTxt: { color: "#fff", fontSize: 11, fontWeight: "700" },
   backBtn: { position: "absolute", left: 16, width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center" },
   bannerTop: { position: "absolute", right: 16, left: 68, flexDirection: "row", justifyContent: "flex-end", gap: 8 },
   catBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },

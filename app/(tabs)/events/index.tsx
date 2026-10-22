@@ -296,7 +296,7 @@ function EventCard({ event, isPast, isBookmarked, onBookmark, onPress }: any) {
 
   return (
     <TouchableOpacity style={[styles.card, isPast && styles.cardPast]} onPress={onPress} activeOpacity={0.85}>
-      <EventImage uri={event.bannerImage} style={styles.cardImg} />
+      <EventImage uri={event.bannerImage} style={styles.cardImg} fit="contain" />
       <View style={styles.cardBody}>
         <View style={styles.cardTop}>
           <View style={[styles.catBadge, { backgroundColor: cat.bg }]}>
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
   badgeTxt: { fontSize: 11, fontWeight: "700", color: "#4F46E5" },
   card: { backgroundColor: "#fff", borderRadius: 20, overflow: "hidden", marginBottom: 14, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   cardPast: { opacity: 0.72 },
-  cardImg: { width: "100%", height: 150, resizeMode: "cover" },
+  cardImg: { width: "100%", height: 190 },
   cardBody: { padding: 14 },
   cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
   catBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
