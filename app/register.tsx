@@ -7,7 +7,8 @@ import { Link, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/auth-context";
 import { ChipSelect } from "@/components/ChipSelect";
-import { STUDY_PROGRAMS, STUDENT_STATUSES, GERMAN_LEVELS } from "@/lib/profile-options";
+import { StudyProgramSelect } from "@/components/StudyProgramSelect";
+import { STUDENT_STATUSES, GERMAN_LEVELS } from "@/lib/profile-options";
 
 function getPasswordStrength(p: string): { label: string; color: string; width: string } {
   if (p.length === 0) return { label: "", color: "#E5E7EB", width: "0%" };
@@ -76,8 +77,8 @@ export default function RegisterScreen() {
         <Field label="Mobiltelefon - Mobile phone" value={phone} onChangeText={setPhone} placeholder="+49 170 1234567" keyboardType="phone-pad" />
         <Field label="Heimatland - Home Country" value={homeCountry} onChangeText={setHomeCountry} placeholder="India" />
         <View style={styles.field}>
-          <Text style={styles.label}>Was studierst du? - What do you study / name of current study program?</Text>
-          <ChipSelect options={STUDY_PROGRAMS} value={studyProgram} onChange={setStudyProgram} />
+          <Text style={styles.label}>Was studierst du? / What is your current degree programme?</Text>
+          <StudyProgramSelect value={studyProgram} onChange={setStudyProgram} />
         </View>
         <View style={styles.field}>
           <Text style={styles.label}>Welchen Studentenstatus hast du? - What is your student status?</Text>

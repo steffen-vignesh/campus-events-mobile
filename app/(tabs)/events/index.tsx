@@ -61,7 +61,7 @@ export default function EventsScreen() {
   // Calendar — plots all events (upcoming + past) across the visible month
   const allFiltered = events.filter(match);
   const monthDays = eachDayOfInterval({ start: startOfMonth(calMonth), end: endOfMonth(calMonth) });
-  const startDow = startOfMonth(calMonth).getDay();
+  const startDow = (startOfMonth(calMonth).getDay() + 6) % 7; // Monday first
   const selectedDayEvents = allFiltered.filter((e) => isSameDay(parseISO(e.date), selectedDay));
 
   return (
@@ -77,12 +77,14 @@ export default function EventsScreen() {
             <TouchableOpacity
               style={[styles.viewToggleBtn, view === "list" && styles.viewToggleBtnActive]}
               onPress={() => setView("list")}
+              accessibilityLabel="List view"
             >
               <Ionicons name="list" size={16} color={view === "list" ? "#fff" : "#6B7280"} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.viewToggleBtn, view === "calendar" && styles.viewToggleBtnActive]}
               onPress={() => setView("calendar")}
+              accessibilityLabel="Calendar view"
             >
               <Ionicons name="calendar" size={16} color={view === "calendar" ? "#fff" : "#6B7280"} />
             </TouchableOpacity>
@@ -234,7 +236,7 @@ function CalendarGrid({
       </View>
 
       <View style={styles.calWeekRow}>
-        {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) => (
           <Text key={`${d}-${i}`} style={styles.calWeekTxt}>{d}</Text>
         ))}
       </View>
@@ -252,30 +254,29 @@ function CalendarGrid({
               key={day.toISOString()}
               style={styles.calCell}
               onPress={() => onSelectDay(day)}
+              activeOpacity={0.7}
+              accessibilityLabel={`${format(day, "EEEE d MMMM")}, ${dayEvents.length} events`}
             >
-              <View style={[
-                styles.calDayNum,
-                todayDate && !selected && styles.calDayNumToday,
-                selected && styles.calDayNumSelected,
-              ]}>
-                <Text style={[
-                  styles.calDayNumTxt,
-                  todayDate && !selected && styles.calDayNumTxtToday,
-                  selected && styles.calDayNumTxtSelected,
-                ]}>
-                  {format(day, "d")}
-                </Text>
-              </View>
-              {dayEvents.length > 0 && (
-                <View style={styles.calDots}>
-                  {dayEvents.slice(0, 3).map((e) => (
-                    <View
-                      key={e.id}
-                      style={[styles.calDot, { backgroundColor: isEventPast(e) ? "#D1D5DB" : (DOT_COLORS[e.category] ?? "#9CA3AF") }]}
-                    />
-                  ))}
+              <View style={[styles.calCellInner, selected && styles.calCellSelected]}>
+                <View style={[styles.calDayNum, todayDate && styles.calDayNumToday]}>
+                  <Text style={[styles.calDayNumTxt, todayDate && styles.calDayNumTxtToday]}>
+                    {format(day, "d")}
+                  </Text>
                 </View>
-              )}
+                {dayEvents.slice(0, 2).map((e) => (
+                  <View
+                    key={e.id}
+                    style={[styles.calChip, isEventPast(e) && styles.calChipPast]}
+                  >
+                    <Text numberOfLines={1} style={[styles.calChipTxt, isEventPast(e) && styles.calChipTxtPast]}>
+                      {e.title}
+                    </Text>
+                  </View>
+                ))}
+                {dayEvents.length > 2 && (
+                  <Text style={styles.calMore}>+{dayEvents.length - 2} more</Text>
+                )}
+              </View>
             </TouchableOpacity>
           );
         })}
@@ -354,21 +355,28 @@ const styles = StyleSheet.create({
   viewToggle: { flexDirection: "row", backgroundColor: "#EEF2FF", borderRadius: 12, padding: 3, gap: 2 },
   viewToggleBtn: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 9 },
   viewToggleBtnActive: { backgroundColor: "#4F46E5" },
-  calCard: { backgroundColor: "#fff", borderRadius: 20, padding: 16, marginBottom: 16, shadowColor: "#000", shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  calCard: { backgroundColor: "#fff", borderRadius: 20, padding: 8, marginBottom: 16, shadowColor: "#000", shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
   calHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
   calMonthTxt: { fontSize: 16, fontWeight: "700", color: "#111827" },
   calNavBtn: { width: 30, height: 30, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   calTodayBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
   calTodayTxt: { fontSize: 11, fontWeight: "700", color: "#4F46E5" },
   calWeekRow: { flexDirection: "row" },
-  calWeekTxt: { flex: 1, textAlign: "center", fontSize: 11, fontWeight: "600", color: "#9CA3AF", paddingBottom: 6 },
+  calWeekTxt: { flex: 1, textAlign: "center", fontSize: 10, fontWeight: "700", color: "#6366F1", paddingBottom: 6 },
   calGrid: { flexDirection: "row", flexWrap: "wrap" },
-  calCell: { width: `${100 / 7}%` as any, aspectRatio: 1, alignItems: "center", paddingTop: 4, gap: 3 },
-  calDayNum: { width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center" },
-  calDayNumToday: { backgroundColor: "#EEF2FF" },
+  calCell: { width: `${100 / 7}%` as any, height: 74, padding: 1.5 },
+  calCellInner: { flex: 1, borderRadius: 8, backgroundColor: "#F5F6FF", paddingTop: 3, paddingHorizontal: 2, gap: 2, borderWidth: 1.5, borderColor: "transparent" },
+  calCellSelected: { borderColor: "#4F46E5", backgroundColor: "#EEF2FF" },
+  calChip: { backgroundColor: "#4F46E5", borderRadius: 4, paddingHorizontal: 3, paddingVertical: 1.5 },
+  calChipPast: { backgroundColor: "#E5E7EB" },
+  calChipTxt: { fontSize: 9, fontWeight: "700", color: "#fff" },
+  calChipTxtPast: { color: "#6B7280" },
+  calMore: { fontSize: 8.5, fontWeight: "700", color: "#4F46E5", paddingHorizontal: 3 },
+  calDayNum: { alignSelf: "center", minWidth: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center" },
+  calDayNumToday: { backgroundColor: "#4F46E5" },
   calDayNumSelected: { backgroundColor: "#4F46E5" },
   calDayNumTxt: { fontSize: 13, fontWeight: "600", color: "#374151" },
-  calDayNumTxtToday: { color: "#4F46E5" },
+  calDayNumTxtToday: { color: "#fff" },
   calDayNumTxtSelected: { color: "#fff" },
   calDots: { flexDirection: "row", gap: 3 },
   calDot: { width: 5, height: 5, borderRadius: 2.5 },

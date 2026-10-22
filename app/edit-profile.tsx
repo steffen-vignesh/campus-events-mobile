@@ -8,7 +8,8 @@ import { supabase } from "@/lib/supabase";
 import { ChipSelect } from "@/components/ChipSelect";
 import { Avatar } from "@/components/Avatar";
 import { pickImage, uploadImage } from "@/lib/upload";
-import { STUDY_PROGRAMS, STUDENT_STATUSES, GERMAN_LEVELS } from "@/lib/profile-options";
+import { StudyProgramSelect } from "@/components/StudyProgramSelect";
+import { STUDENT_STATUSES, GERMAN_LEVELS } from "@/lib/profile-options";
 
 export default function EditProfileScreen() {
   const { user, refreshUser } = useAuth();
@@ -85,8 +86,8 @@ export default function EditProfileScreen() {
           <Text style={styles.label}>Heimatland - Home Country</Text>
           <TextInput style={styles.input} value={homeCountry} onChangeText={setHomeCountry} placeholder="India" placeholderTextColor="#9CA3AF" />
 
-          <Text style={styles.label}>Was studierst du? - What do you study / name of current study program?</Text>
-          <ChipSelect options={STUDY_PROGRAMS} value={studyProgram} onChange={setStudyProgram} />
+          <Text style={styles.label}>Was studierst du? / What is your current degree programme?</Text>
+          <StudyProgramSelect value={studyProgram} onChange={setStudyProgram} />
           <Text style={styles.label}>Welchen Studentenstatus hast du? - What is your student status?</Text>
           <ChipSelect options={STUDENT_STATUSES} value={studentStatus} onChange={setStudentStatus} />
           <Text style={styles.label}>Wie gut sind Ihre Deutschkenntnisse? - What is your level of proficiency in the German language?</Text>
