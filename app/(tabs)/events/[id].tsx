@@ -4,8 +4,8 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
-import { type Event, getCategoryColor, isEventPast } from "@/lib/mock-data";
-import { getAdaptedEvent, registerForEvent, isRegisteredForEvent, getMyBookmarks, addBookmark, removeBookmark, getMyEventSurvey } from "@/lib/db";
+import { type Event, getCategoryColor, isEventPast, isEventOver } from "@/lib/mock-data";
+import { getAdaptedEvent, registerForEvent, isRegisteredForEvent, didIAttend, getMyBookmarks, addBookmark, removeBookmark, getMyEventSurvey } from "@/lib/db";
 import { useAuth } from "@/contexts/auth-context";
 import { EventImage } from "@/components/EventImage";
 import { ImageViewer } from "@/components/ImageViewer";
@@ -21,6 +21,7 @@ export default function EventDetailScreen() {
   const [registering, setRegistering] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [surveySubmitted, setSurveySubmitted] = useState(false);
+  const [attended, setAttended] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -29,11 +30,13 @@ export default function EventDetailScreen() {
       isRegisteredForEvent(id),
       getMyBookmarks(),
       getMyEventSurvey(id),
-    ]).then(([evt, registered, bms, survey]) => {
+      didIAttend(id),
+    ]).then(([evt, registered, bms, survey, didAttend]) => {
       setEvent(evt);
       setIsRegistered(registered);
       setIsBookmarked(bms.includes(id));
       setSurveySubmitted(!!survey);
+      setAttended(didAttend);
     }).catch(() => setEvent(null));
   }, [id]);
 
@@ -267,8 +270,14 @@ export default function EventDetailScreen() {
             </TouchableOpacity>
           )}
 
-          {/* Feedback survey — past events the student registered for */}
-          {isPast && isRegistered && (
+          {/* Feedback survey — only for students marked present, once the event is over */}
+          {isEventOver(event) && isRegistered && !attended && !surveySubmitted && (
+            <View style={styles.surveyNote}>
+              <Ionicons name="information-circle-outline" size={18} color="#4F46E5" />
+              <Text style={styles.surveyNoteTxt}>Feedback is for students who attended. If you were there, ask the organizer to mark you present.</Text>
+            </View>
+          )}
+          {isEventOver(event) && isRegistered && attended && (
             surveySubmitted ? (
               <View style={styles.surveyDoneCard}>
                 <Ionicons name="checkmark-circle" size={18} color="#16A34A" />
@@ -373,6 +382,8 @@ const styles = StyleSheet.create({
   deadlineTxt: { fontSize: 13, color: "#6B7280" },
   surveyDoneCard: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#ECFDF5", borderRadius: 14, padding: 14, marginBottom: 12 },
   surveyDoneTxt: { fontSize: 13, fontWeight: "600", color: "#166534" },
+  surveyNote: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: "#EEF2FF", borderRadius: 14, padding: 14, marginBottom: 12 },
+  surveyNoteTxt: { flex: 1, fontSize: 13, color: "#3730A3", lineHeight: 19 },
   surveyBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#4F46E5", borderRadius: 14, paddingVertical: 13, marginBottom: 12 },
   surveyBtnTxt: { color: "#fff", fontWeight: "700", fontSize: 14 },
   spacer: { height: 16 },

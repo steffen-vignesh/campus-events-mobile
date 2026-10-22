@@ -17,6 +17,7 @@ export interface Event {
   category: Category;
   date: string;
   endDate?: string;
+  endTime?: string;
   time: string;
   venue: string;
   mapLink?: string;
@@ -83,6 +84,16 @@ export function isEventPast(event: Event): boolean {
   const dateStr = event.endDate ?? event.date;
   const timeStr = event.endDate ? "23:59" : (event.time ?? "23:59");
   return new Date(`${dateStr}T${timeStr}:00`) < new Date();
+}
+
+// True once the event is over: after its end date, else after its end time, else after the end of the event day.
+// Surveys open at this point (isEventPast, above, flips at the START time and is used for the "past events" lists).
+export function isEventOver(event: Event): boolean {
+  const dateStr = event.endDate ?? event.date;
+  const m = (event.endDate ? "" : (event.endTime ?? "")).match(/^(\d{1,2}):(\d{2})/);
+  const timeStr = m ? `${m[1].padStart(2, "0")}:${m[2]}` : "23:59";
+  const t = new Date(`${dateStr}T${timeStr}:00`).getTime();
+  return !Number.isNaN(t) && t < Date.now();
 }
 
 export const MOCK_EVENTS: Event[] = [

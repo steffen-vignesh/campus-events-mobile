@@ -4,9 +4,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
-import { type Event, isEventPast } from "@/lib/mock-data";
+import { type Event, isEventOver } from "@/lib/mock-data";
 import {
-  getAdaptedEvent, submitSurvey, getMyEventSurvey, isRegisteredForEvent,
+  getAdaptedEvent, submitSurvey, getMyEventSurvey, isRegisteredForEvent, didIAttend,
   getSurveyQuestions, type DbSurveyQuestion,
 } from "@/lib/db";
 
@@ -91,6 +91,7 @@ export default function SurveyScreen() {
 
   const [event, setEvent] = useState<Event | null | undefined>(undefined);
   const [registered, setRegistered] = useState(false);
+  const [attended, setAttended] = useState<boolean | null>(null);
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -109,6 +110,7 @@ export default function SurveyScreen() {
     if (!id) return;
     getAdaptedEvent(id).then(setEvent).catch(() => setEvent(null));
     isRegisteredForEvent(id).then(setRegistered).catch(() => {});
+    didIAttend(id).then(setAttended).catch(() => setAttended(false));
     getMyEventSurvey(id).then((s) => setAlreadySubmitted(!!s)).catch(() => {});
     getSurveyQuestions(id).then(setQuestions).catch(() => setQuestions([]));
   }, [id]);
@@ -169,7 +171,7 @@ export default function SurveyScreen() {
     );
   }
 
-  const isPast = isEventPast(event);
+  const isPast = isEventOver(event);
 
   if (!isPast) {
     return (
@@ -183,11 +185,20 @@ export default function SurveyScreen() {
     );
   }
 
-  if (!registered) {
+  if (attended === null) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.centerWrap}><ActivityIndicator size="large" color="#4F46E5" /></View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!attended && !alreadySubmitted && !done) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.centerWrap}>
-          <Text style={styles.blockedTxt}>Survey is only for registered attendees.</Text>
+          <Text style={styles.blockedTxt}>{registered ? "Feedback is for students who attended." : "Survey is only for registered attendees."}</Text>
+          {registered ? <Text style={styles.blockedSub}>If you were there, ask the organizer to mark you present.</Text> : null}
           <TouchableOpacity onPress={() => router.back()}><Text style={styles.link}>Go back</Text></TouchableOpacity>
         </View>
       </SafeAreaView>

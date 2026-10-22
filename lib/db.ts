@@ -49,6 +49,7 @@ export function adaptDbEvent(e: DbEvent, registrationCount = 0): Event {
     description: e.description,
     date: e.date,
     endDate: e.end_date ?? undefined,
+    endTime: e.end_time ?? undefined,
     time: e.time,
     venue: e.venue,
     bannerImage: e.banner_image,
@@ -199,6 +200,19 @@ export async function isRegisteredForEvent(eventId: string): Promise<boolean> {
     .eq("user_id", user.id)
     .maybeSingle();
   return !!data;
+}
+
+// True only if the organizer (or the QR check-in) marked this student present at the event.
+export async function didIAttend(eventId: string): Promise<boolean> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+  const { data } = await supabase
+    .from("registrations")
+    .select("attended")
+    .eq("event_id", eventId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  return !!data?.attended;
 }
 
 export async function getAllRegistrations(): Promise<DbRegistration[]> {
